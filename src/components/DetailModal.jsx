@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { FIELDS, MISSION_TYPES } from '../config.js';
 
 // Pretty-print an epoch ms field. Returns null if missing/invalid.
 function fmtDate(v) {
@@ -17,24 +18,85 @@ const has = (v) => {
 };
 
 function Section({ title, rows }) {
-  const visible = rows.filter((r) => has(r.value));
+  // Editable rows are always shown so users can fill in blanks; static
+  // rows are hidden when empty.
+  const visible = rows.filter((r) => r.editable || has(r.value));
   if (visible.length === 0) return null;
   return (
     <section className="modal-section">
       <h3>{title}</h3>
       <dl>
-        {visible.map((r) => (
-          <div className={`modal-row${r.multi ? ' multi' : ''}`} key={r.label}>
-            <dt>{r.label}</dt>
-            <dd>{String(r.value)}</dd>
-          </div>
-        ))}
+        {visible.map((r) =>
+          r.editable ? (
+            <EditableSelectRow
+              key={r.label}
+              label={r.label}
+              value={r.value}
+              options={r.options}
+              field={r.field}
+              objectId={r.objectId}
+              onUpdate={r.onUpdate}
+            />
+          ) : (
+            <div className={`modal-row${r.multi ? ' multi' : ''}`} key={r.label}>
+              <dt>{r.label}</dt>
+              <dd>{String(r.value)}</dd>
+            </div>
+          ),
+        )}
       </dl>
     </section>
   );
 }
 
-export default function DetailModal({ r, onClose }) {
+function EditableSelectRow({ label, value, options, field, objectId, onUpdate }) {
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState('');
+
+  const handleChange = async (e) => {
+    const newVal = e.target.value || null;
+    if (!onUpdate) return;
+    setErr('');
+    setSaving(true);
+    try {
+      await onUpdate(objectId, { [field]: newVal });
+    } catch (ex) {
+      setErr(ex.message || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const display = value == null ? '' : String(value);
+  // If the current value isn't in our options, show it anyway so the
+  // user sees what's there and can pick a new one.
+  const opts = display && !options.includes(display)
+    ? [display, ...options]
+    : options;
+
+  return (
+    <div className="modal-row editable">
+      <dt>{label}</dt>
+      <dd>
+        <select
+          className="modal-edit-select"
+          value={display}
+          onChange={handleChange}
+          disabled={saving || !onUpdate}
+        >
+          <option value="">— Select —</option>
+          {opts.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        {saving && <span className="muted small modal-edit-status">Saving…</span>}
+        {!saving && err && <span className="error-text small modal-edit-status">{err}</span>}
+      </dd>
+    </div>
+  );
+}
+
+export default function DetailModal({ r, onClose, onUpdate }) {
   // ESC closes the modal
   useEffect(() => {
     if (!r) return;
@@ -91,6 +153,15 @@ export default function DetailModal({ r, onClose }) {
             { label: 'Number',         value: r.mission_number_rpt },
             { label: 'Mission status', value: r.mission_status_rpt },
             { label: 'Coordinating ESF', value: r.coordinator },
+            {
+              label: 'Mission type',
+              value: r[FIELDS.missionType],
+              editable: true,
+              options: MISSION_TYPES,
+              field: FIELDS.missionType,
+              objectId: r[FIELDS.objectId],
+              onUpdate,
+            },
           ]} />
 
           <Section title="Ownership / Request" rows={[

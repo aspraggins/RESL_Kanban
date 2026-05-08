@@ -93,15 +93,15 @@ export async function fetchAllResources() {
   return allFeatures.map((f) => f.attributes);
 }
 
-// Update a single feature's status. Uses applyEdits so we get a clean
-// success/failure response per OBJECTID.
-export async function updateStatus(objectId, newStatus) {
+// Update arbitrary attributes on a single feature via applyEdits.
+// `partial` is an object of { fieldName: newValue } pairs.
+export async function updateAttributes(objectId, partial) {
   await ensureFreshToken();
   const TOKEN = getToken();
 
   const attributes = {
     [FIELDS.objectId]: objectId,
-    [FIELDS.status]:   newStatus,
+    ...partial,
   };
   const body = new URLSearchParams({
     f:        'json',
@@ -119,4 +119,9 @@ export async function updateStatus(objectId, newStatus) {
     throw new Error(msg);
   }
   return result;
+}
+
+// Convenience wrapper used by the drag-drop handler.
+export async function updateStatus(objectId, newStatus) {
+  return updateAttributes(objectId, { [FIELDS.status]: newStatus });
 }

@@ -10,7 +10,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core';
 import { COLUMNS, FIELDS, CONFIG, statusToColumnId } from '../config.js';
-import { fetchAllResources, fetchLayerMeta, updateStatus } from '../service.js';
+import { fetchAllResources, fetchLayerMeta, updateStatus, updateAttributes } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
 import { HeaderFilters, ColumnFilters } from './FilterBar.jsx';
@@ -272,7 +272,39 @@ export default function Board({ onSignOut }) {
         </>
       )}
 
-      <DetailModal r={detailRow} onClose={() => setDetailRow(null)} />
+      <DetailModal
+        r={detailRow}
+        onClose={() => setDetailRow(null)}
+        onUpdate={async (objectId, partial) => {
+          // Snapshot the old values for rollback
+          const before = resources.find((row) => row[FIELDS.objectId] === objectId);
+          if (!before) throw new Error('Row not found');
+          const snapshot = {};
+          for (const k of Object.keys(partial)) snapshot[k] = before[k];
+
+          // Optimistic update — both the resources list AND the detailRow
+          // so the modal reflects the new value immediately.
+          setResources((rs) =>
+            rs.map((row) => (row[FIELDS.objectId] === objectId ? { ...row, ...partial } : row)),
+          );
+          setDetailRow((prev) =>
+            prev && prev[FIELDS.objectId] === objectId ? { ...prev, ...partial } : prev,
+          );
+
+          try {
+            await updateAttributes(objectId, partial);
+          } catch (err) {
+            // Roll back
+            setResources((rs) =>
+              rs.map((row) => (row[FIELDS.objectId] === objectId ? { ...row, ...snapshot } : row)),
+            );
+            setDetailRow((prev) =>
+              prev && prev[FIELDS.objectId] === objectId ? { ...prev, ...snapshot } : prev,
+            );
+            throw err;
+          }
+        }}
+      />
     </div>
   );
 }

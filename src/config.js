@@ -108,9 +108,47 @@ export const FIELDS = {
   creator:         'Creator',
   editor:          'Editor',
 
+  // -- Editable fields ----------------------------------------------------
+  missionType:     'mission_type',
+
   // -- Status (Kanban writes here) ---------------------------------------
   status:          'item_status',
 };
+
+// ============================================================================
+//  MISSION TYPE — coded values for the editable dropdown in the detail
+//  modal. Must match the layer's coded-value-domain on `mission_type` exactly.
+// ============================================================================
+export const MISSION_TYPES = [
+  'Aircraft',
+  'Ambulance Strike Teams',
+  'Border Support',
+  'Communications',
+  'Cut and Toss',
+  'Debris Removal',
+  'EMAC A-Team',
+  'EOC Support',
+  'Equipment Only',
+  'Firefighting Resources',
+  'HART',
+  'Incident Management Team',
+  'Law Enforcement',
+  'Medical Personnel',
+  'Mental Health Strike Team',
+  'Military Police',
+  'National Guard',
+  'Other',
+  'Pharmacist',
+  'Public Assistance Team',
+  'Public Health Nurses',
+  'Public Information',
+  'Public Works',
+  'Shelter Support',
+  'Swift Water Rescue',
+  'TERT',
+  'Transportation',
+  'US&R',
+];
 
 // ============================================================================
 //  KANBAN COLUMNS — left-to-right order. The `value` is what gets written to

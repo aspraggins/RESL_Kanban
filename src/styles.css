@@ -298,9 +298,8 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12px;
   color: var(--text);
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .card-updated { line-height: 1.2; }
 .card-qty {
@@ -311,14 +310,18 @@ button { font-family: inherit; cursor: pointer; }
 .card-name {
   font-size: 12px;
   color: var(--text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  /* Cap super-long product names at 3 lines so cards don't grow huge.
+     Browsers without line-clamp fall back to natural wrapping. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .card-entity {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .card-footer {
   display: flex;
@@ -349,7 +352,29 @@ button { font-family: inherit; cursor: pointer; }
   font-family: ui-monospace, Menlo, Consolas, monospace;
 }
 .card-pending { color: var(--primary); font-weight: 500; margin-left: auto; }
-.card { padding-bottom: 11px; position: relative; }   /* room for the corner info button */
+.card {
+  padding-bottom: 11px;
+  position: relative;
+  /* Enables the @container query below to reflow card contents when the
+     card itself (not the viewport) gets narrow. */
+  container-type: inline-size;
+}
+
+/* When the card is squished narrower than ~270px, drop to a single
+   column. The right side becomes left-aligned and stacks under the
+   left side instead of fighting it for space. */
+@container (max-width: 270px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .card-right {
+    text-align: left;
+    border-top: 1px dashed var(--border);
+    padding-top: 6px;
+    margin-top: 2px;
+  }
+}
 
 /* Info button (top-right corner of the card) */
 .card-info-btn {
@@ -455,6 +480,28 @@ button { font-family: inherit; cursor: pointer; }
 .modal-row dt { color: var(--muted); }
 .modal-row dd { margin: 0; color: var(--text); word-break: break-word; }
 .modal-row.multi dd { white-space: pre-wrap; }
+
+/* Editable rows in the modal — mission_type dropdown etc. */
+.modal-row.editable dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.modal-edit-select {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  min-width: 180px;
+  max-width: 100%;
+}
+.modal-edit-select:focus { outline: 2px solid var(--primary); outline-offset: 0; }
+.modal-edit-select:disabled { background: #f6f8fb; cursor: not-allowed; }
+.modal-edit-status { font-style: italic; }
+.error-text { color: var(--danger); }
 
 /* ─── Header filters (top row, beside brand) ─────────────────────────── */
 .header-filters {
