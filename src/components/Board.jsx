@@ -232,6 +232,12 @@ export default function Board({ onSignOut }) {
       ) : (
         <>
           <div className="board-toolbar">
+            <SortToggle sortBy={sortBy} onSortBy={setSortBy} />
+            <ColumnToggles
+              hiddenColumns={hiddenColumns}
+              onToggleColumn={toggleColumn}
+              onResetColumns={resetColumns}
+            />
             <div className="toolbar-info">
               <strong>{filtered.length}</strong>
               {filtered.length !== resources.length && (
@@ -244,13 +250,7 @@ export default function Board({ onSignOut }) {
               </span>
               {error && <span className="error-pill">{error}</span>}
             </div>
-            <SortToggle sortBy={sortBy} onSortBy={setSortBy} />
-            <ColumnToggles
-              hiddenColumns={hiddenColumns}
-              onToggleColumn={toggleColumn}
-              onResetColumns={resetColumns}
-            />
-            <button className="btn btn-ghost toolbar-refresh" onClick={refresh} disabled={loading}>
+            <button className="btn btn-ghost" onClick={refresh} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
