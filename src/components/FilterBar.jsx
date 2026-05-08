@@ -15,11 +15,19 @@ function uniques(rows, key) {
   );
 }
 
-// ─── Main filter row: dropdowns + search + clear ────────────────────
-// Sits between the app header and the board toolbar. Clear button
-// resets ONLY the row-2 controls (filters + search). Hidden columns
-// have their own "Show all" reset on row 3.
-export function MainFilters({ resources, filters, onFilters }) {
+// ─── Main filters row (row 2) ───────────────────────────────────────
+//  Dropdowns + Sort + Columns + Clear. Clear only resets the four
+//  dropdowns; Sort and Columns have their own resets where they live.
+export function MainFilters({
+  resources,
+  filters,
+  onFilters,
+  hiddenColumns,
+  onToggleColumn,
+  onResetColumns,
+  sortBy,
+  onSortBy,
+}) {
   const missions = useMemo(() => uniques(resources, 'mission_id_rpt'), [resources]);
   const esfs     = useMemo(() => uniques(resources, 'coordinator'),    [resources]);
   const counties = useMemo(() => uniques(resources, 'county_rpt'),     [resources]);
@@ -31,12 +39,13 @@ export function MainFilters({ resources, filters, onFilters }) {
     (filters.mission ? 1 : 0) +
     (filters.esf     ? 1 : 0) +
     (filters.county  ? 1 : 0) +
-    (filters.kind    ? 1 : 0) +
-    (filters.search  ? 1 : 0);
+    (filters.kind    ? 1 : 0);
 
   const clearFilters = () => {
-    onFilters({ mission: '', esf: '', county: '', kind: '', search: '' });
+    onFilters({ ...filters, mission: '', esf: '', county: '', kind: '' });
   };
+
+  const anyHidden = hiddenColumns.size > 0;
 
   return (
     <div className="main-filters">
@@ -44,36 +53,7 @@ export function MainFilters({ resources, filters, onFilters }) {
       <Select label="Coordinating ESF" value={filters.esf}     options={esfs}     onChange={(v) => set({ esf: v })} />
       <Select label="Kind"             value={filters.kind}    options={kinds}    onChange={(v) => set({ kind: v })} />
       <Select label="County"           value={filters.county}  options={counties} onChange={(v) => set({ county: v })} />
-      <label className="filter-select filter-select--search">
-        <span className="muted small">Search</span>
-        <input
-          className="filter-search"
-          type="search"
-          placeholder="Tag, item, requestor…"
-          value={filters.search}
-          onChange={(e) => set({ search: e.target.value })}
-        />
-      </label>
-      {activeCount > 0 && (
-        <button className="btn btn-ghost btn-sm clear-btn" onClick={clearFilters}>
-          Clear ({activeCount})
-        </button>
-      )}
-    </div>
-  );
-}
 
-// ─── Board controls: column toggles + sort (lives in the toolbar) ───
-export function BoardControls({
-  hiddenColumns,
-  onToggleColumn,
-  onResetColumns,
-  sortBy,
-  onSortBy,
-}) {
-  const anyHidden = hiddenColumns.size > 0;
-  return (
-    <div className="board-controls">
       <div className="sort-toggle" role="group" aria-label="Sort cards by">
         <span className="muted small">Sort:</span>
         <button
@@ -93,6 +73,7 @@ export function BoardControls({
           Request #
         </button>
       </div>
+
       <div className="column-toggles">
         <span className="muted small">Columns:</span>
         {COLUMNS.map((c) => {
@@ -122,7 +103,29 @@ export function BoardControls({
           </button>
         )}
       </div>
+
+      {activeCount > 0 && (
+        <button className="btn btn-ghost btn-sm clear-btn" onClick={clearFilters}>
+          Clear ({activeCount})
+        </button>
+      )}
     </div>
+  );
+}
+
+// ─── Search box (lives in the toolbar row, beside the count) ─────────
+export function ToolbarSearch({ filters, onFilters }) {
+  return (
+    <label className="toolbar-search">
+      <span className="muted small">Search</span>
+      <input
+        className="filter-search"
+        type="search"
+        placeholder="Tag, item, requestor…"
+        value={filters.search}
+        onChange={(e) => onFilters({ ...filters, search: e.target.value })}
+      />
+    </label>
   );
 }
 

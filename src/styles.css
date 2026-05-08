@@ -582,10 +582,6 @@ button { font-family: inherit; cursor: pointer; }
   min-width: 140px;
   max-width: 240px;
 }
-/* The search input lives inside a .filter-select so its label aligns
-   with the dropdown labels. The input itself flexes to fill remaining
-   horizontal room. */
-.filter-select--search { flex: 1 1 220px; min-width: 200px; }
 .filter-search {
   font-family: inherit;
   font-size: 13px;
@@ -597,14 +593,22 @@ button { font-family: inherit; cursor: pointer; }
 }
 .clear-btn { align-self: end; margin-bottom: 1px; }
 
-/* ─── Board controls (in toolbar: column toggles + sort) ────────────── */
-.board-controls {
+/* ─── Toolbar search (row 3, beside count info) ─────────────────────── */
+.toolbar-search {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   margin-left: auto;
+  min-width: 200px;
+  flex: 1 1 240px;
+  max-width: 360px;
 }
+.toolbar-search > span { flex: 0 0 auto; }
+.toolbar-search .filter-search {
+  flex: 1;
+  width: auto;
+}
+
 .column-toggles {
   display: flex;
   flex-wrap: wrap;

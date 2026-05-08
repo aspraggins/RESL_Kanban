@@ -13,7 +13,7 @@ import { COLUMNS, FIELDS, CONFIG, statusToColumnId } from '../config.js';
 import { fetchAllResources, fetchLayerMeta, updateStatus, updateAttributes } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
-import { MainFilters, BoardControls } from './FilterBar.jsx';
+import { MainFilters, ToolbarSearch } from './FilterBar.jsx';
 import Brand from './Brand.jsx';
 import DetailModal from './DetailModal.jsx';
 
@@ -213,6 +213,11 @@ export default function Board({ onSignOut }) {
         resources={resources}
         filters={filters}
         onFilters={setFilters}
+        hiddenColumns={hiddenColumns}
+        onToggleColumn={toggleColumn}
+        onResetColumns={resetColumns}
+        sortBy={sortBy}
+        onSortBy={setSortBy}
       />
 
       {loading && !resources.length ? (
@@ -235,13 +240,7 @@ export default function Board({ onSignOut }) {
               </span>
               {error && <span className="error-pill">{error}</span>}
             </div>
-            <BoardControls
-              hiddenColumns={hiddenColumns}
-              onToggleColumn={toggleColumn}
-              onResetColumns={resetColumns}
-              sortBy={sortBy}
-              onSortBy={setSortBy}
-            />
+            <ToolbarSearch filters={filters} onFilters={setFilters} />
           </div>
 
           <DndContext
