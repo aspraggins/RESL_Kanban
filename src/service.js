@@ -60,11 +60,13 @@ export async function fetchAllResources() {
   await ensureFreshToken();
   const TOKEN = getToken();
 
-  // Be defensive about which fields we ask for — only request the ones we
-  // know about. The server will silently drop unknown names but it's
-  // friendlier to send exactly what we want.
-  const wantFields = Object.values(FIELDS).filter(Boolean);
-  const outFields  = wantFields.length ? wantFields.join(',') : '*';
+  // Always ask for `*` so we don't 400 when FIELDS placeholders don't
+  // match the layer schema yet. Cards in Card.jsx fall through to
+  // `Resource <oid>` when display fields are missing, so this is the
+  // friendliest behavior — the app loads, the diagnostic in
+  // fetchLayerMeta() prints the real field names to the console, and
+  // you tweak src/config.js #FIELDS at your leisure.
+  const outFields = '*';
 
   const allFeatures = [];
   const pageSize = 2000;
