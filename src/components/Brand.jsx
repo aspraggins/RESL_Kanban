@@ -6,7 +6,7 @@ export default function Brand() {
   return (
     <div className="brand">
       <TnBadge size={28} />
-      <span>Resource Deployment Kanban</span>
+      <span>Resource Deployment Status</span>
     </div>
   );
 }

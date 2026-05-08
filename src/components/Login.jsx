@@ -18,7 +18,7 @@ export default function Login({ error, onClearError }) {
       <div className="login-card">
         <div className="login-brand">
           <TnBadge size={64} />
-          <h1>Resource Deployment Kanban</h1>
+          <h1>Resource Deployment Status</h1>
         </div>
         <p className="muted">
           Sign in with your ArcGIS Online account to view and assign deployed

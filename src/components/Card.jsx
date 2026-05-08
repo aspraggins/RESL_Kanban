@@ -2,12 +2,12 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { FIELDS } from '../config.js';
 
-export default function Card({ r, pending = false, dragging = false }) {
+export default function Card({ r, pending = false, dragging = false, onShowDetail }) {
   if (dragging) return <CardView r={r} pending={pending} dragging />;
-  return <DraggableCard r={r} pending={pending} />;
+  return <DraggableCard r={r} pending={pending} onShowDetail={onShowDetail} />;
 }
 
-function DraggableCard({ r, pending }) {
+function DraggableCard({ r, pending, onShowDetail }) {
   const oid = r[FIELDS.objectId];
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: String(oid),
@@ -23,6 +23,7 @@ function DraggableCard({ r, pending }) {
       style={style}
       forwardRef={setNodeRef}
       handleProps={{ ...attributes, ...listeners }}
+      onShowDetail={onShowDetail}
     />
   );
 }
@@ -77,7 +78,7 @@ function describeResource(r) {
 }
 
 // ─── Render ────────────────────────────────────────────────────────────
-function CardView({ r, pending, style, dragging = false, forwardRef, handleProps = {} }) {
+function CardView({ r, pending, style, dragging = false, forwardRef, handleProps = {}, onShowDetail }) {
   const oid       = r[FIELDS.objectId];
   const reqNum    = v(r, FIELDS.requestNumber);
   const county    = v(r, FIELDS.county);
@@ -88,6 +89,17 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
   const mission   = v(r, FIELDS.missionId);
   const { qtyLine, nameLine } = describeResource(r);
 
+  // Click handler that explicitly does NOT propagate to the dnd-kit
+  // listeners on the card root — otherwise the click might be swallowed
+  // by drag detection.
+  const handleDetailClick = (e) => {
+    e.stopPropagation();
+    onShowDetail && onShowDetail(r);
+  };
+  // Block pointerdown so dnd-kit doesn't even start tracking a drag
+  // when the user is just trying to tap the info button.
+  const swallowDown = (e) => e.stopPropagation();
+
   return (
     <div
       ref={forwardRef}
@@ -95,6 +107,20 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
       className={`card${dragging ? ' is-dragging' : ''}${pending ? ' is-pending' : ''}`}
       {...handleProps}
     >
+      {onShowDetail && !dragging && (
+        <button
+          type="button"
+          className="card-info-btn"
+          onPointerDown={swallowDown}
+          onMouseDown={swallowDown}
+          onTouchStart={swallowDown}
+          onClick={handleDetailClick}
+          title="Show details"
+          aria-label="Show details"
+        >
+          ⓘ
+        </button>
+      )}
       <div className="card-grid">
         <div className="card-left">
           <div className="card-title">{reqNum ? `#${reqNum}` : `OID ${oid}`}</div>
@@ -110,7 +136,7 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
       <div className="card-footer">
         {esf     && <span className="card-chip">ESF · {esf}</span>}
         {mission && <span className="card-chip">{mission}</span>}
-        {days != null && <span className="card-chip">{days}d</span>}
+        {days != null && <span className="card-chip card-chip-mono">{days}d</span>}
         {pending && <span className="card-pending">Saving…</span>}
       </div>
     </div>

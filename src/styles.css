@@ -325,8 +325,8 @@ button { font-family: inherit; cursor: pointer; }
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 8px;
+  padding: 8px 0 4px;
   border-top: 1px dashed var(--border);
   font-size: 11px;
   color: var(--muted);
@@ -334,15 +334,127 @@ button { font-family: inherit; cursor: pointer; }
 .card-chip {
   background: #f1f5f9;
   border-radius: 4px;
-  padding: 1px 6px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  padding: 2px 7px;
+  font-family: inherit;          /* readable for long text (mission names) */
   font-size: 10px;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  max-width: 100%;               /* never overflow the card */
+  white-space: normal;           /* allow wrapping for long values */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+/* Mono variant for short ID-like values (mission #, days) — opt-in via
+   class so the bulk-text chips stay readable. */
+.card-chip-mono {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
 }
 .card-pending { color: var(--primary); font-weight: 500; margin-left: auto; }
+.card { padding-bottom: 11px; position: relative; }   /* room for the corner info button */
+
+/* Info button (top-right corner of the card) */
+.card-info-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, background .12s, color .12s;
+}
+.card:hover .card-info-btn { opacity: 1; }
+.card-info-btn:hover { background: #eef2f7; color: var(--primary); }
+.card-info-btn:focus-visible { opacity: 1; outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* Make sure the title doesn't run under the info button */
+.card-grid { padding-right: 22px; }
+
+/* ─── Detail modal ───────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+  animation: fade-in .14s ease-out;
+}
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+.modal {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .35);
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: pop-in .16s ease-out;
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.modal-eyebrow { font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.modal-header h2 { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+.modal-close {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.modal-close:hover { background: #eef2f7; color: var(--text); }
+.modal-body {
+  padding: 14px 20px 20px;
+  overflow-y: auto;
+}
+.modal-section + .modal-section { margin-top: 14px; }
+.modal-section h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.modal-section dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  row-gap: 4px;
+  column-gap: 12px;
+  font-size: 13px;
+}
+.modal-row { display: contents; }
+.modal-row dt { color: var(--muted); }
+.modal-row dd { margin: 0; color: var(--text); word-break: break-word; }
+.modal-row.multi dd { white-space: pre-wrap; }
 
 /* ─── Header filters (top row, beside brand) ─────────────────────────── */
 .header-filters {

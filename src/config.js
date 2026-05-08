@@ -1,5 +1,5 @@
 // ============================================================================
-//  CONFIG  —  Resource Deployment Kanban
+//  CONFIG  —  Resource Deployment Status
 //  Mirrors the OAuth 2.0 + PKCE pattern used by Critical2TN. To use the same
 //  AGOL app registration, add this app's redirect URI(s) to the Native App's
 //  redirect URI list in AGOL → Content → (your app item) → Settings.
@@ -24,7 +24,7 @@ export const CONFIG = {
     'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/Mobilization_MCC_Tracking_Resource_Repeat_View/FeatureServer/1',
 
   // -- OAuth 2.0 (PKCE) -----------------------------------------------------
-  // App ID for the dedicated AGOL "Resource Deployment Kanban" registration.
+  // App ID for the dedicated AGOL "Resource Deployment Status" registration.
   // Override at build time with VITE_CLIENT_ID (set as a GitHub Actions
   // repo variable) if you register a separate app for staging/production.
   clientId:     import.meta.env.VITE_CLIENT_ID || 'ylEHpMx1WynLwVf2',
@@ -95,6 +95,18 @@ export const FIELDS = {
   expectedDays:    'expected_days_deployed',
   expectedArrival: 'expected_arrival',
   editDate:        'EditDate',
+
+  // -- Notes & audit ------------------------------------------------------
+  note:            'note_rpt',
+  reslNote:        'resl_note',
+  vendor:          'vendor_rpt',
+  stateAgency:     'state_agency_rpt',
+  itemMobilization:'item_mobilization',
+  itemDemobilization:'item_demobilization',
+  missionStatus:   'mission_status_rpt',
+  creationDate:    'CreationDate',
+  creator:         'Creator',
+  editor:          'Editor',
 
   // -- Status (Kanban writes here) ---------------------------------------
   status:          'item_status',

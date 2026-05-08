@@ -1,4 +1,4 @@
-# Resource Deployment Kanban
+# Resource Deployment Status
 
 Drag-and-drop Kanban board for assigning deployment status to resources stored
 in an ArcGIS Online feature service. Built with React + Vite + dnd-kit, using

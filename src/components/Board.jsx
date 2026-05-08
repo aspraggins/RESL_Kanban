@@ -15,6 +15,7 @@ import Column from './Column.jsx';
 import Card from './Card.jsx';
 import { HeaderFilters, ColumnFilters } from './FilterBar.jsx';
 import Brand from './Brand.jsx';
+import DetailModal from './DetailModal.jsx';
 
 const EMPTY_FILTERS = { mission: '', esf: '', county: '', kind: '', search: '' };
 
@@ -84,6 +85,7 @@ export default function Board({ onSignOut }) {
   const [filters,      setFilters]       = useState(EMPTY_FILTERS);
   const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
+  const [detailRow,    setDetailRow]     = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -247,6 +249,7 @@ export default function Board({ onSignOut }) {
                   resources={grouped._unassigned}
                   pending={pending}
                   droppable={false}
+                  onShowDetail={setDetailRow}
                 />
               )}
               {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => (
@@ -258,6 +261,7 @@ export default function Board({ onSignOut }) {
                   resources={grouped[c.id] || []}
                   pending={pending}
                   droppable
+                  onShowDetail={setDetailRow}
                 />
               ))}
             </div>
@@ -267,6 +271,8 @@ export default function Board({ onSignOut }) {
           </DndContext>
         </>
       )}
+
+      <DetailModal r={detailRow} onClose={() => setDetailRow(null)} />
     </div>
   );
 }

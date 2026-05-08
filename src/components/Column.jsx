@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { FIELDS } from '../config.js';
 import Card from './Card.jsx';
 
-export default function Column({ id, label, accent, resources, pending, droppable }) {
+export default function Column({ id, label, accent, resources, pending, droppable, onShowDetail }) {
   const { isOver, setNodeRef } = useDroppable({ id, disabled: !droppable });
 
   return (
@@ -22,6 +22,7 @@ export default function Column({ id, label, accent, resources, pending, droppabl
             key={r[FIELDS.objectId]}
             r={r}
             pending={pending.has(r[FIELDS.objectId])}
+            onShowDetail={onShowDetail}
           />
         ))}
         {droppable && resources.length === 0 && (
