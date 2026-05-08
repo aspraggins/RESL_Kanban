@@ -36,18 +36,17 @@ layer.
    coded-value domains. The `value` in each `COLUMNS` entry is what gets
    written to the layer on drop. If your layer expects `On-Scene` rather than
    `On Scene`, adjust `value` (the `label` is purely cosmetic).
-4. **Register the redirect URI in AGOL.** Open the AGOL app item that owns
-   the OAuth Client ID (`tP3hyVsfaw5Am3BF` by default — Critical2TN's). In
-   _Settings → App Registration → Redirect URIs_, add every host this app
-   will run from:
+4. **Register the redirect URI in AGOL.** Open the AGOL app item for
+   Client ID `ylEHpMx1WynLwVf2`. In _Settings → App Registration →
+   Redirect URIs_, add every host this app will run from:
    - `http://localhost:5173/` (Vite dev)
    - `https://<github-user>.github.io/<repo>/` (GitHub Pages)
    - `https://<your-bucket>.cloudfront.net/<path>/` (S3/CloudFront)
    - The Experience Builder experience URL the iframe is hosted under
 
    Trailing slash matters — match exactly what `window.location.origin +
-   directory` produces. To use a different App ID instead of sharing
-   Critical2TN's, copy `.env.example` to `.env.local` and set
+   directory` produces. To use a different App ID for staging or another
+   environment, copy `.env.example` to `.env.local` and set
    `VITE_CLIENT_ID`.
 5. **Run it locally.**
    ```bash

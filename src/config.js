@@ -24,9 +24,10 @@ export const CONFIG = {
     'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/Mobilization_MCC_Tracking_Resource_Repeat_View/FeatureServer/1',
 
   // -- OAuth 2.0 (PKCE) -----------------------------------------------------
-  // Use the same clientId as Critical2TN if you've added this app's redirect
-  // URI to that registration; otherwise register a new Native App in AGOL.
-  clientId:     import.meta.env.VITE_CLIENT_ID || 'tP3hyVsfaw5Am3BF',
+  // App ID for the dedicated AGOL "Resource Deployment Kanban" registration.
+  // Override at build time with VITE_CLIENT_ID (set as a GitHub Actions
+  // repo variable) if you register a separate app for staging/production.
+  clientId:     import.meta.env.VITE_CLIENT_ID || 'ylEHpMx1WynLwVf2',
   redirectUri:  detectRedirectUri(),
   authorizeUrl: 'https://www.arcgis.com/sharing/rest/oauth2/authorize',
   tokenUrl:     'https://www.arcgis.com/sharing/rest/oauth2/token',
