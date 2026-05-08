@@ -16,8 +16,8 @@ function uniques(rows, key) {
 }
 
 // ─── Main filters row (row 2) ───────────────────────────────────────
-//  Dropdowns + Sort + Columns + Clear. Clear only resets the four
-//  dropdowns; Sort and Columns have their own resets where they live.
+//  Dropdowns + Columns + Clear. Clear only resets the four dropdowns;
+//  Columns has its own "Show all" link. Sort lives in the toolbar.
 export function MainFilters({
   resources,
   filters,
@@ -25,8 +25,6 @@ export function MainFilters({
   hiddenColumns,
   onToggleColumn,
   onResetColumns,
-  sortBy,
-  onSortBy,
 }) {
   const missions = useMemo(() => uniques(resources, 'mission_id_rpt'), [resources]);
   const esfs     = useMemo(() => uniques(resources, 'coordinator'),    [resources]);
@@ -53,26 +51,6 @@ export function MainFilters({
       <Select label="Coordinating ESF" value={filters.esf}     options={esfs}     onChange={(v) => set({ esf: v })} />
       <Select label="Kind"             value={filters.kind}    options={kinds}    onChange={(v) => set({ kind: v })} />
       <Select label="County"           value={filters.county}  options={counties} onChange={(v) => set({ county: v })} />
-
-      <div className="sort-toggle" role="group" aria-label="Sort cards by">
-        <span className="muted small">Sort:</span>
-        <button
-          type="button"
-          className={`seg-btn${sortBy === 'updated' ? ' is-on' : ''}`}
-          onClick={() => onSortBy('updated')}
-          title="Most recently edited at top"
-        >
-          Updated
-        </button>
-        <button
-          type="button"
-          className={`seg-btn${sortBy === 'request' ? ' is-on' : ''}`}
-          onClick={() => onSortBy('request')}
-          title="Lowest request number at top"
-        >
-          Request #
-        </button>
-      </div>
 
       <div className="column-toggles">
         <span className="muted small">Columns:</span>
@@ -109,6 +87,31 @@ export function MainFilters({
           Clear ({activeCount})
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Sort toggle (toolbar row, between count info and search) ──────
+export function SortToggle({ sortBy, onSortBy }) {
+  return (
+    <div className="sort-toggle" role="group" aria-label="Sort cards by">
+      <span className="muted small">Sort:</span>
+      <button
+        type="button"
+        className={`seg-btn${sortBy === 'updated' ? ' is-on' : ''}`}
+        onClick={() => onSortBy('updated')}
+        title="Most recently edited at top"
+      >
+        Updated
+      </button>
+      <button
+        type="button"
+        className={`seg-btn${sortBy === 'request' ? ' is-on' : ''}`}
+        onClick={() => onSortBy('request')}
+        title="Lowest request number at top"
+      >
+        Request #
+      </button>
     </div>
   );
 }

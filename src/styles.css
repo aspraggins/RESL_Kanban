@@ -593,15 +593,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .clear-btn { align-self: end; margin-bottom: 1px; }
 
-/* ─── Toolbar search (row 3, beside count info) ─────────────────────── */
+/* ─── Toolbar search (row 3) — extends to the right edge ─────────── */
 .toolbar-search {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
-  min-width: 200px;
   flex: 1 1 240px;
-  max-width: 360px;
+  min-width: 200px;
 }
 .toolbar-search > span { flex: 0 0 auto; }
 .toolbar-search .filter-search {
