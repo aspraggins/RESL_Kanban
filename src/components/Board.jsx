@@ -102,11 +102,18 @@ function mostRecentMission(rows) {
   return bestMission;
 }
 
+// Normalize for filter comparison: trim, lowercase, collapse runs of
+// whitespace. Helps URL-driven filters tolerate small differences like
+// case, accidental double-spaces, or trailing whitespace from copy/paste.
+function n(s) {
+  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function rowMatches(r, f) {
-  if (f.mission && String(r.mission_id_rpt || '') !== f.mission) return false;
-  if (f.esf     && String(r.coordinator   || '') !== f.esf)     return false;
-  if (f.county  && String(r.county_rpt    || '') !== f.county)  return false;
-  if (f.kind    && String(r.resource_kind || '') !== f.kind)    return false;
+  if (f.mission && n(r.mission_id_rpt) !== n(f.mission)) return false;
+  if (f.esf     && n(r.coordinator)    !== n(f.esf))     return false;
+  if (f.county  && n(r.county_rpt)     !== n(f.county))  return false;
+  if (f.kind    && n(r.resource_kind)  !== n(f.kind))    return false;
   if (f.search) {
     const raw = f.search.trim();
 
@@ -345,6 +352,21 @@ export default function Board({ onSignOut }) {
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
+
+          {filtered.length === 0 && resources.length > 0 && lockedFilters.size > 0 && (
+            <div className="empty-banner">
+              <strong>No resources match the locked filters.</strong>
+              <div className="muted small">
+                {[...lockedFilters].map((k) => `${k} = "${filters[k]}"`).join(' · ')}
+              </div>
+              <div className="muted small">
+                Values must match the AGOL coded value (case- and
+                whitespace-insensitive). Open DevTools → Console → look
+                for the layer-metadata log to see the exact strings on
+                file.
+              </div>
+            </div>
+          )}
 
           <DndContext
             sensors={sensors}

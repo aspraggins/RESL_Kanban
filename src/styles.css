@@ -263,6 +263,19 @@ button { font-family: inherit; cursor: pointer; }
   border: 1px dashed var(--border);
   border-radius: 6px;
 }
+.empty-banner {
+  margin: 14px;
+  padding: 14px 18px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #78350f;
+}
+.empty-banner strong { color: #78350f; }
 
 /* ─── Card ───────────────────────────────────────────────────────────── */
 .card {
@@ -589,15 +602,23 @@ button { font-family: inherit; cursor: pointer; }
   min-width: 140px;
   max-width: 240px;
 }
-.filter-select.is-locked select {
-  background: #f1f5f9;
-  color: var(--text);
-  cursor: not-allowed;
-  opacity: 1;             /* override the browser's default disabled gray */
-  font-style: italic;
-}
 .filter-select.is-locked > span { color: var(--primary); font-weight: 500; }
 .lock-glyph { font-style: normal; }
+.locked-value {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: var(--text);
+  font-style: italic;
+  min-width: 140px;
+  /* Expand to fit the full text on one line. If row doesn't have room
+     it'll just wrap to a new flex line — no truncation either way. */
+  width: max-content;
+  white-space: nowrap;
+}
 /* The search input lives inside a .filter-select so its label aligns
    with the dropdown labels. The cell flex-grows to fill the remaining
    horizontal room on row 2. */

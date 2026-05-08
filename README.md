@@ -138,9 +138,20 @@ Supported parameters:
 | `kind` | Resource Kind | `?kind=Equipment` |
 | `county` | County | `?county=Davidson` |
 
-Combine any number of them: `?mission=...&esf=...`. URL-encode spaces
-and special characters (most browsers do this for you when you copy a
-link out of the address bar).
+Combine any number of them: `?mission=...&esf=...`. **You must URL-encode
+`#` as `%23`** — a literal `#` in a URL marks the fragment, so anything
+after it is dropped from the query string. Forward slash (`/`) should be
+encoded as `%2F` to be safe (some routers eat unencoded slashes). Spaces
+can be `%20` or just literal spaces in modern browsers.
+
+Easiest way to build a correct link — in any browser's DevTools console:
+
+```js
+encodeURIComponent('2026 Mission #8 Severe Winter Weather Monitoring')
+// → "2026%20Mission%20%238%20Severe%20Winter%20Weather%20Monitoring"
+```
+
+Then drop that after `?mission=` (or `?esf=`, etc.).
 
 Locked filter dropdowns render disabled with a 🔒 indicator; they aren't
 counted in "Clear (N)" and aren't reset by clicking Clear. The user can

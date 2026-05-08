@@ -135,31 +135,25 @@ export function ColumnToggles({ hiddenColumns, onToggleColumn, onResetColumns })
 }
 
 function Select({ label, value, options, onChange, locked = false }) {
-  // When locked (set via URL), the dropdown is disabled and only shows
-  // the current value so the displayed text matches what's stored.
+  // When locked (URL parameter), render the value as a wrapping text
+  // chip rather than a disabled <select> — selects truncate long values
+  // and the user can't see what they're scoped to.
   return (
     <label className={`filter-select${locked ? ' is-locked' : ''}`}>
       <span className="muted small">
         {locked && <span className="lock-glyph" aria-hidden="true">🔒 </span>}
         {label}{locked && ' (locked)'}
       </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={locked}
-        title={locked ? 'Locked by URL parameter' : undefined}
-      >
-        {locked ? (
-          <option value={value}>{value}</option>
-        ) : (
-          <>
-            <option value="">All</option>
-            {options.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </>
-        )}
-      </select>
+      {locked ? (
+        <div className="locked-value" title={value}>{value}</div>
+      ) : (
+        <select value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value="">All</option>
+          {options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      )}
     </label>
   );
 }
