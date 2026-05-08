@@ -37,17 +37,34 @@ const v = (r, k) => {
   return s.length ? s : null;
 };
 
-// AGOL date fields are epoch ms. Format short: "2/17/26 11:52a"
-function formatEditDate(ms) {
-  if (ms == null || ms === '') return null;
+// AGOL date fields are epoch ms. Returns { text, tier } where:
+//   tier = 'hour'  — edited in the last 60 min  (strong highlight)
+//   tier = 'today' — edited since local midnight (soft highlight)
+//   tier = null    — older  (no highlight)
+function describeEditDate(ms) {
+  if (ms == null || ms === '') return { text: null, tier: null };
   const n = Number(ms);
-  if (!Number.isFinite(n) || n <= 0) return null;
+  if (!Number.isFinite(n) || n <= 0) return { text: null, tier: null };
   const d = new Date(n);
-  if (Number.isNaN(d.getTime())) return null;
-  const mdy = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
-  const t   = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  if (Number.isNaN(d.getTime())) return { text: null, tier: null };
+
+  const now = Date.now();
+  const minutesAgo = Math.floor((now - n) / 60000);
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const isToday = n >= startOfToday.getTime();
+
+  const t = d
+    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
     .replace(' AM', 'a').replace(' PM', 'p');
-  return `${mdy} ${t}`;
+
+  if (minutesAgo < 1)  return { text: 'Just now',           tier: 'hour'  };
+  if (minutesAgo < 60) return { text: `${minutesAgo} min ago`, tier: 'hour'  };
+  if (isToday)         return { text: `Today · ${t}`,       tier: 'today' };
+
+  const mdy = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+  return { text: `${mdy} ${t}`, tier: null };
 }
 
 // Given a row, return { qtyLine, nameLine } describing its quantity and
@@ -82,7 +99,7 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
   const oid       = r[FIELDS.objectId];
   const reqNum    = v(r, FIELDS.requestNumber);
   const county    = v(r, FIELDS.county);
-  const editDate  = formatEditDate(r[FIELDS.editDate]);
+  const edit      = describeEditDate(r[FIELDS.editDate]);
   const entity    = v(r, FIELDS.entity);
   const esf       = v(r, FIELDS.esf);
   const days      = v(r, FIELDS.daysDeployed);
@@ -104,7 +121,7 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
     <div
       ref={forwardRef}
       style={style}
-      className={`card${dragging ? ' is-dragging' : ''}${pending ? ' is-pending' : ''}`}
+      className={`card${dragging ? ' is-dragging' : ''}${pending ? ' is-pending' : ''}${edit.tier ? ` is-fresh-${edit.tier}` : ''}`}
       {...handleProps}
     >
       {onShowDetail && !dragging && (
@@ -125,7 +142,12 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
         <div className="card-left">
           <div className="card-title">{reqNum ? `#${reqNum}` : `OID ${oid}`}</div>
           {county && <div className="card-county">{county} County</div>}
-          {editDate && <div className="card-updated muted small">Updated {editDate}</div>}
+          {edit.text && (
+            <div className={`card-updated small${edit.tier ? ` is-fresh-${edit.tier}` : ' muted'}`}>
+              {edit.tier === 'hour' && <span className="fresh-dot" aria-hidden="true" />}
+              Updated {edit.text}
+            </div>
+          )}
         </div>
         <div className="card-right">
           {qtyLine && <div className="card-qty">{qtyLine}</div>}
