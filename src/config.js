@@ -155,16 +155,17 @@ export const MISSION_TYPES = [
 //  FIELDS.status when a card is dropped here. Tweak labels/values if the
 //  feature service uses different exact strings (e.g. "On-Scene" vs "On Scene").
 // ============================================================================
-// Order mirrors the AGOL coded-value-domain dropdown so the board reads
-// the same way as the form. Colors are in the same family as the
-// related Arcade symbology, with En Route and Canceled nudged to
-// darker shades so they're visually distinct from On Hold / Demobilized.
+// Workflow-style ordering: held/staged → en route → on scene → demobilized → canceled.
+// Unassigned is rendered separately (always first) by Board.jsx.
+// Colors are in the same family as the related Arcade symbology, with
+// En Route and Canceled nudged to darker shades so they're visually
+// distinct from On Hold / Demobilized.
 export const COLUMNS = [
-  { id: 'onscene',     label: 'On Scene',    value: 'On Scene',    accent: '#228B22' },
   { id: 'onhold',      label: 'On Hold',     value: 'On Hold',     accent: '#45C8ED' },
   { id: 'staged',      label: 'Staged',      value: 'Staged',      accent: '#FCFF00' },
-  { id: 'demobilized', label: 'Demobilized', value: 'Demobilized', accent: '#ADADAD' },
   { id: 'enroute',     label: 'En Route',    value: 'En Route',    accent: '#2563eb' },
+  { id: 'onscene',     label: 'On Scene',    value: 'On Scene',    accent: '#228B22' },
+  { id: 'demobilized', label: 'Demobilized', value: 'Demobilized', accent: '#ADADAD' },
   { id: 'canceled',    label: 'Canceled',    value: 'Canceled',    accent: '#6b7280' },
 ];
 
