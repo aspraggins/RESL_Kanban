@@ -19,6 +19,32 @@ import DetailModal from './DetailModal.jsx';
 
 const EMPTY_FILTERS = { mission: '', esf: '', county: '', kind: '', search: '' };
 
+// Filters that can be locked via URL search parameters. Search is
+// always user-editable.
+const LOCKABLE_FILTERS = ['mission', 'esf', 'county', 'kind'];
+
+// Read URL parameters once at boot. Any LOCKABLE_FILTER key present
+// in `?mission=...&esf=...` becomes both the initial value AND a
+// locked filter the user can't change in-session. Allows sharing or
+// embedding scoped views (e.g. one mission, one ESF).
+function readUrlFilters() {
+  if (typeof window === 'undefined') {
+    return { values: {}, locked: new Set() };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const values = {};
+  const locked = new Set();
+  for (const key of LOCKABLE_FILTERS) {
+    const raw = params.get(key);
+    if (raw == null) continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    values[key] = trimmed;
+    locked.add(key);
+  }
+  return { values, locked };
+}
+
 const SEARCHABLE = [
   'request_number_rpt', 'mission_id_rpt', 'mission_detail_rpt',
   'tag_number', 'item', 'make', 'serial', 'identifier',
@@ -94,7 +120,26 @@ export default function Board({ onSignOut }) {
   const [activeId,     setActiveId]      = useState(null);
   const [pending,      setPending]       = useState(() => new Set());
   const [lastRefresh,  setLastRefresh]   = useState(null);
-  const [filters,      setFilters]       = useState(EMPTY_FILTERS);
+  // Initial filters and locked-filter set come from URL params, if any.
+  const [{ filters, lockedFilters }, setFilterState] = useState(() => {
+    const { values, locked } = readUrlFilters();
+    return {
+      filters: { ...EMPTY_FILTERS, ...values },
+      lockedFilters: locked,
+    };
+  });
+  // Stable setter that preserves locked values regardless of caller intent.
+  const setFilters = useCallback((next) => {
+    setFilterState((prev) => {
+      const merged = typeof next === 'function' ? next(prev.filters) : next;
+      const enforced = { ...merged };
+      for (const k of prev.lockedFilters) {
+        enforced[k] = prev.filters[k];
+      }
+      return { ...prev, filters: enforced };
+    });
+  }, []);
+
   const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
   const [detailRow,    setDetailRow]     = useState(null);
@@ -222,6 +267,7 @@ export default function Board({ onSignOut }) {
         resources={resources}
         filters={filters}
         onFilters={setFilters}
+        lockedFilters={lockedFilters}
       />
 
       {loading && !resources.length ? (

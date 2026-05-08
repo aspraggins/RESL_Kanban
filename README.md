@@ -122,6 +122,36 @@ are blocked inside the AGOL login page's `X-Frame-Options`).
   card. Cards are draggable on touch with a 150ms hold so they don't snag
   scroll.
 
+## URL parameter scoping
+
+You can pre-filter the board AND lock those filters down (so users can't
+change them in-session) by passing them as URL query parameters. Useful
+for sharing scoped views or embedding mission-specific dashboards in
+Experience Builder.
+
+Supported parameters:
+
+| Param | Locks | Example |
+| --- | --- | --- |
+| `mission` | Mission filter | `?mission=2026 Mission #8 Severe Winter Weather Monitoring` |
+| `esf` | Coordinating ESF | `?esf=ESF 4 - Forestry / Fire` |
+| `kind` | Resource Kind | `?kind=Equipment` |
+| `county` | County | `?county=Davidson` |
+
+Combine any number of them: `?mission=...&esf=...`. URL-encode spaces
+and special characters (most browsers do this for you when you copy a
+link out of the address bar).
+
+Locked filter dropdowns render disabled with a 🔒 indicator; they aren't
+counted in "Clear (N)" and aren't reset by clicking Clear. The user can
+still apply additional non-locked filters and Search on top of the
+locked scope.
+
+Values must match the AGOL coded value exactly (case- and
+whitespace-sensitive). If a URL param doesn't match any record the
+board renders empty — open DevTools to confirm the value, then fix the
+URL.
+
 ## Troubleshooting
 
 - **"Popup was blocked"** — happens the first time on a domain. Allow popups

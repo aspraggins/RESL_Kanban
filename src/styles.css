@@ -589,6 +589,15 @@ button { font-family: inherit; cursor: pointer; }
   min-width: 140px;
   max-width: 240px;
 }
+.filter-select.is-locked select {
+  background: #f1f5f9;
+  color: var(--text);
+  cursor: not-allowed;
+  opacity: 1;             /* override the browser's default disabled gray */
+  font-style: italic;
+}
+.filter-select.is-locked > span { color: var(--primary); font-weight: 500; }
+.lock-glyph { font-style: normal; }
 /* The search input lives inside a .filter-select so its label aligns
    with the dropdown labels. The cell flex-grows to fill the remaining
    horizontal room on row 2. */
