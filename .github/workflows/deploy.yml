@@ -1,0 +1,76 @@
+# Build & deploy resl-kanban to GitHub Pages on every push to main.
+#
+# How to enable:
+#   1. Push this repo to GitHub.
+#   2. Repo Settings → Pages → Source = "GitHub Actions".
+#   3. (Optional) If you want a different trigger branch, change `branches`.
+#
+# After the first successful run, the live URL appears in:
+#   Repo Settings → Pages   AND   the "github-pages" environment URL on the
+#   Actions run summary.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Allow manually triggering a redeploy from the Actions tab
+  workflow_dispatch:
+
+# Tokens GitHub Pages needs
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; cancel any in-progress run if a new push lands
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        # `npm ci` is faster + reproducible but requires a committed
+        # package-lock.json. Falls back to `npm install` so the very
+        # first deploy works before you've generated a lockfile.
+        run: npm ci || npm install
+
+      - name: Build
+        run: npm run build
+        env:
+          # Vite picks these up at build time. Override either by editing
+          # this file or (preferably) by setting them as repository
+          # variables/secrets and referencing them as ${{ vars.NAME }}.
+          # Leaving them unset falls back to the defaults in src/config.js.
+          VITE_CLIENT_ID:    ${{ vars.VITE_CLIENT_ID }}
+          VITE_SERVICE_URL:  ${{ vars.VITE_SERVICE_URL }}
+          # VITE_REDIRECT_URI is auto-detected from window.location at
+          # runtime, so you usually don't need to set it here.
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
