@@ -39,6 +39,13 @@ button { font-family: inherit; cursor: pointer; }
   padding: 10px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.app-header--with-filters .brand { flex: 0 0 auto; }
+.app-header--with-filters .header-filters {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .brand {
   display: flex;
@@ -75,6 +82,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .btn-ghost:hover { background: #eef2f7; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-sm { padding: 4px 9px; font-size: 12px; }
 
 /* ─── Boot screen / spinner ──────────────────────────────────────────── */
 .boot-screen {
@@ -172,7 +180,12 @@ button { font-family: inherit; cursor: pointer; }
 }
 .column {
   --column-accent: #6b7280;
-  flex: 0 0 260px;
+  /* Grow to share the available width when fewer columns are visible,
+     but never shrink below 260px so cards stay legible. Combined with
+     the board's `overflow-x: auto`, the cards still get a horizontal
+     scrollbar when too many columns + narrow screen. */
+  flex: 1 1 260px;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -321,19 +334,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .card-pending { color: var(--primary); font-weight: 500; margin-left: auto; }
 
-/* ─── Filter bar ─────────────────────────────────────────────────────── */
-.filter-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.filter-row {
+/* ─── Header filters (top row, beside brand) ─────────────────────────── */
+.header-filters {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: end;
   gap: 8px;
 }
 .filter-select {
@@ -350,18 +355,34 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 6px;
   background: #fff;
   min-width: 140px;
+  max-width: 240px;
+}
+
+/* ─── Filter bar (second row: column toggles + search) ──────────────── */
+.filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .filter-search {
   flex: 1;
   min-width: 180px;
+  margin-left: auto;
   font-family: inherit;
   font-size: 13px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fff;
 }
 .column-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   font-size: 12px;
   gap: 6px;
 }

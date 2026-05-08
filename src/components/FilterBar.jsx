@@ -15,28 +15,21 @@ function uniques(rows, key) {
   );
 }
 
-export default function FilterBar({
+// ─── Header row: dropdowns + clear ────────────────────────────────────
+// Renders inline in the app header alongside the brand and sign-out btn.
+export function HeaderFilters({
   resources,
   filters,
   onFilters,
   hiddenColumns,
-  onToggleColumn,
+  onResetColumns,
 }) {
-  // Derive dropdown option lists from the loaded data so the UI only
-  // surfaces values that actually appear.
   const missions = useMemo(() => uniques(resources, 'mission_id_rpt'), [resources]);
   const esfs     = useMemo(() => uniques(resources, 'coordinator'),    [resources]);
   const counties = useMemo(() => uniques(resources, 'county_rpt'),     [resources]);
   const kinds    = useMemo(() => uniques(resources, 'resource_kind'),  [resources]);
 
   const set = (patch) => onFilters({ ...filters, ...patch });
-  const clearAll = () => {
-    onFilters({ mission: '', esf: '', county: '', kind: '', search: '' });
-    // Also un-hide all columns
-    if (hiddenColumns.size > 0) {
-      for (const id of [...hiddenColumns]) onToggleColumn(id);
-    }
-  };
 
   const activeCount =
     (filters.mission ? 1 : 0) +
@@ -46,47 +39,36 @@ export default function FilterBar({
     (filters.search  ? 1 : 0) +
     (hiddenColumns.size > 0 ? 1 : 0);
 
+  const clearAll = () => {
+    onFilters({ mission: '', esf: '', county: '', kind: '', search: '' });
+    onResetColumns && onResetColumns();
+  };
+
+  return (
+    <div className="header-filters">
+      <Select label="Mission"          value={filters.mission} options={missions} onChange={(v) => set({ mission: v })} />
+      <Select label="Coordinating ESF" value={filters.esf}     options={esfs}     onChange={(v) => set({ esf: v })} />
+      <Select label="Kind"             value={filters.kind}    options={kinds}    onChange={(v) => set({ kind: v })} />
+      <Select label="County"           value={filters.county}  options={counties} onChange={(v) => set({ county: v })} />
+      {activeCount > 0 && (
+        <button className="btn btn-ghost btn-sm" onClick={clearAll}>
+          Clear ({activeCount})
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Secondary row: column toggles + search ──────────────────────────
+export function ColumnFilters({
+  filters,
+  onFilters,
+  hiddenColumns,
+  onToggleColumn,
+}) {
   return (
     <div className="filter-bar">
-      <div className="filter-row">
-        <Select
-          label="Mission"
-          value={filters.mission}
-          options={missions}
-          onChange={(v) => set({ mission: v })}
-        />
-        <Select
-          label="Coordinating ESF"
-          value={filters.esf}
-          options={esfs}
-          onChange={(v) => set({ esf: v })}
-        />
-        <Select
-          label="Kind"
-          value={filters.kind}
-          options={kinds}
-          onChange={(v) => set({ kind: v })}
-        />
-        <Select
-          label="County"
-          value={filters.county}
-          options={counties}
-          onChange={(v) => set({ county: v })}
-        />
-        <input
-          className="filter-search"
-          type="search"
-          placeholder="Search…"
-          value={filters.search}
-          onChange={(e) => set({ search: e.target.value })}
-        />
-        {activeCount > 0 && (
-          <button className="btn btn-ghost" onClick={clearAll}>
-            Clear ({activeCount})
-          </button>
-        )}
-      </div>
-      <div className="filter-row column-toggles">
+      <div className="column-toggles">
         <span className="muted small">Columns:</span>
         {COLUMNS.map((c) => {
           const hidden = hiddenColumns.has(c.id);
@@ -105,6 +87,13 @@ export default function FilterBar({
           );
         })}
       </div>
+      <input
+        className="filter-search"
+        type="search"
+        placeholder="Search…"
+        value={filters.search}
+        onChange={(e) => onFilters({ ...filters, search: e.target.value })}
+      />
     </div>
   );
 }

@@ -8,14 +8,13 @@ import {
 } from './auth.js';
 import Login from './components/Login.jsx';
 import Board from './components/Board.jsx';
+import Brand from './components/Brand.jsx';
 
 export default function App() {
   const [boot, setBoot] = useState({ stage: 'starting' });
   const [authed, setAuthed] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Boot sequence: handle any ?code= callback first, then try to resume a
-  // cached session, then render either Login or Board.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -23,7 +22,6 @@ export default function App() {
         onError: (msg) => !cancelled && setAuthError(msg),
       });
       if (consumed) {
-        // We're the popup — handleOAuthCallback already replaced the body.
         setBoot({ stage: 'popup-done' });
         return;
       }
@@ -45,24 +43,16 @@ export default function App() {
     );
   }
 
+  // Authenticated → Board provides its own full chrome (header, filters,
+  // toolbar, columns). Unauthenticated → render a slim header-less Login.
+  if (authed) return <Board onSignOut={signOut} />;
+
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand">
-          <span className="brand-dot" />
-          <span>Resource Deployment Kanban</span>
-        </div>
-        {authed && (
-          <button className="btn btn-ghost" onClick={signOut}>
-            Sign out
-          </button>
-        )}
+        <Brand />
       </header>
-      {authed ? (
-        <Board />
-      ) : (
-        <Login error={authError} onClearError={() => setAuthError('')} />
-      )}
+      <Login error={authError} onClearError={() => setAuthError('')} />
     </div>
   );
 }

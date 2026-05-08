@@ -13,11 +13,11 @@ import { COLUMNS, FIELDS, CONFIG, statusToColumnId } from '../config.js';
 import { fetchAllResources, fetchLayerMeta, updateStatus } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
-import FilterBar from './FilterBar.jsx';
+import { HeaderFilters, ColumnFilters } from './FilterBar.jsx';
+import Brand from './Brand.jsx';
 
 const EMPTY_FILTERS = { mission: '', esf: '', county: '', kind: '', search: '' };
 
-// Search hits across these fields (case-insensitive substring).
 const SEARCHABLE = [
   'request_number_rpt', 'mission_id_rpt', 'mission_detail_rpt',
   'tag_number', 'item', 'make', 'serial', 'identifier',
@@ -45,14 +45,14 @@ function rowMatches(r, f) {
   return true;
 }
 
-export default function Board() {
-  const [resources, setResources]   = useState([]);
-  const [loading,   setLoading]     = useState(true);
-  const [error,     setError]       = useState('');
-  const [activeId,  setActiveId]    = useState(null);
-  const [pending,   setPending]     = useState(() => new Set());
-  const [lastRefresh, setLastRefresh] = useState(null);
-  const [filters,   setFilters]     = useState(EMPTY_FILTERS);
+export default function Board({ onSignOut }) {
+  const [resources,    setResources]     = useState([]);
+  const [loading,      setLoading]       = useState(true);
+  const [error,        setError]         = useState('');
+  const [activeId,     setActiveId]      = useState(null);
+  const [pending,      setPending]       = useState(() => new Set());
+  const [lastRefresh,  setLastRefresh]   = useState(null);
+  const [filters,      setFilters]       = useState(EMPTY_FILTERS);
   const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
 
   const sensors = useSensors(
@@ -61,7 +61,6 @@ export default function Board() {
     useSensor(KeyboardSensor),
   );
 
-  // Initial load + periodic refresh
   const refresh = useCallback(async () => {
     try {
       setError('');
@@ -84,7 +83,6 @@ export default function Board() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  // Apply filters first, then group by column ----------------------------
   const filtered = useMemo(
     () => resources.filter((r) => rowMatches(r, filters)),
     [resources, filters],
@@ -110,10 +108,10 @@ export default function Board() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  const resetColumns = () => setHiddenColumns(new Set());
 
-  // Drag handlers --------------------------------------------------------
+  // Drag handlers
   const handleDragStart = (event) => setActiveId(String(event.active.id));
-
   const handleDragEnd = async (event) => {
     setActiveId(null);
     const { active, over } = event;
@@ -148,79 +146,90 @@ export default function Board() {
     }
   };
 
-  if (loading && !resources.length) {
-    return (
-      <div className="boot-screen">
-        <div className="spinner" />
-        <p>Loading resources…</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="board-wrap">
-      <FilterBar
-        resources={resources}
+    <div className="app-shell">
+      <header className="app-header app-header--with-filters">
+        <Brand />
+        <HeaderFilters
+          resources={resources}
+          filters={filters}
+          onFilters={setFilters}
+          hiddenColumns={hiddenColumns}
+          onResetColumns={resetColumns}
+        />
+        <button className="btn btn-ghost" onClick={onSignOut}>Sign out</button>
+      </header>
+
+      <ColumnFilters
         filters={filters}
         onFilters={setFilters}
         hiddenColumns={hiddenColumns}
         onToggleColumn={toggleColumn}
       />
 
-      <div className="board-toolbar">
-        <div>
-          <strong>{filtered.length}</strong>
-          {filtered.length !== resources.length && (
-            <span className="muted small"> of {resources.length}</span>
-          )}
-          <span className="muted small">
-            {' '}
-            resource{filtered.length === 1 ? '' : 's'}
-            {lastRefresh && ` · last updated ${lastRefresh.toLocaleTimeString()}`}
-          </span>
+      {loading && !resources.length ? (
+        <div className="boot-screen">
+          <div className="spinner" />
+          <p>Loading resources…</p>
         </div>
-        <div className="toolbar-right">
-          {error && <span className="error-pill">{error}</span>}
-          <button className="btn btn-ghost" onClick={refresh} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </button>
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="board-toolbar">
+            <div>
+              <strong>{filtered.length}</strong>
+              {filtered.length !== resources.length && (
+                <span className="muted small"> of {resources.length}</span>
+              )}
+              <span className="muted small">
+                {' '}
+                resource{filtered.length === 1 ? '' : 's'}
+                {lastRefresh && ` · last updated ${lastRefresh.toLocaleTimeString()}`}
+              </span>
+            </div>
+            <div className="toolbar-right">
+              {error && <span className="error-pill">{error}</span>}
+              <button className="btn btn-ghost" onClick={refresh} disabled={loading}>
+                {loading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+          </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <div className="board">
-          {grouped._unassigned.length > 0 && (
-            <Column
-              id="_unassigned"
-              label="Unassigned"
-              accent="#ef4444"
-              resources={grouped._unassigned}
-              pending={pending}
-              droppable={false}
-            />
-          )}
-          {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => (
-            <Column
-              key={c.id}
-              id={c.id}
-              label={c.label}
-              accent={c.accent}
-              resources={grouped[c.id] || []}
-              pending={pending}
-              droppable
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {activeResource ? <Card r={activeResource} dragging /> : null}
-        </DragOverlay>
-      </DndContext>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveId(null)}
+          >
+            <div className="board">
+              {grouped._unassigned.length > 0 && (
+                <Column
+                  id="_unassigned"
+                  label="Unassigned"
+                  accent="#ef4444"
+                  resources={grouped._unassigned}
+                  pending={pending}
+                  droppable={false}
+                />
+              )}
+              {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => (
+                <Column
+                  key={c.id}
+                  id={c.id}
+                  label={c.label}
+                  accent={c.accent}
+                  resources={grouped[c.id] || []}
+                  pending={pending}
+                  droppable
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeResource ? <Card r={activeResource} dragging /> : null}
+            </DragOverlay>
+          </DndContext>
+        </>
+      )}
     </div>
   );
 }
