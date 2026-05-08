@@ -600,7 +600,11 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 6px;
   background: #fff;
   min-width: 140px;
-  max-width: 240px;
+  /* No fixed cap — the select sizes to its longest option text so the
+     currently-selected value isn't clipped. The flex row wraps if it
+     runs out of horizontal room. */
+  max-width: none;
+  width: auto;
 }
 .filter-select.is-locked > span { color: var(--primary); font-weight: 500; }
 .lock-glyph { font-style: normal; }
