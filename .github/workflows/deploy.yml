@@ -39,7 +39,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Re-enable `cache: 'npm'` once a package-lock.json is committed.
+          # setup-node fails the build if cache is on but no lockfile exists.
 
       - name: Install dependencies
         # `npm ci` is faster + reproducible but requires a committed
