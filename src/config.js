@@ -38,7 +38,7 @@ export const CONFIG = {
   // Refresh the access token this many ms before it actually expires.
   refreshBufferMs: 5 * 60 * 1000,
   // Auto-refresh of the resource list (set to 0 to disable).
-  refreshInterval: 5 * 60 * 1000,
+  refreshInterval: 60 * 1000,
 
   // Storage keys (bumped from the Critical2TN ones so the two apps don't
   // share a token cache).
