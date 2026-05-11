@@ -3,7 +3,7 @@
 //  on every request and silently refreshes once on a 498/499 response.
 // ============================================================================
 
-import { CONFIG, FIELDS } from './config.js';
+import { CONFIG, FIELDS, MCC_SERVICE } from './config.js';
 import { getToken, ensureFreshToken, clearStoredToken } from './auth.js';
 
 async function arcgisFetch(url, init, _retried) {
@@ -124,4 +124,35 @@ export async function updateAttributes(objectId, partial) {
 // Convenience wrapper used by the drag-drop handler.
 export async function updateStatus(objectId, newStatus) {
   return updateAttributes(objectId, { [FIELDS.status]: newStatus });
+}
+
+// ─── MCC Status Mapper (secondary service) ───────────────────────────
+// Look up the original county request that a resource deployment
+// fulfills. Match is MCC_number = request_number_rpt AND
+// incidentid = mission_id_rpt. Returns null if no record matches.
+export async function fetchMccRequest({ requestNumber, missionId }) {
+  if (requestNumber == null || requestNumber === '' || !missionId) return null;
+  const num = Number(requestNumber);
+  if (!Number.isFinite(num)) return null;
+
+  await ensureFreshToken();
+  const TOKEN = getToken();
+
+  const safeMission = String(missionId).replace(/'/g, "''");
+  const where =
+    `${MCC_SERVICE.fields.mccNumber} = ${num} ` +
+    `AND ${MCC_SERVICE.fields.incidentId} = '${safeMission}'`;
+
+  const params = new URLSearchParams({
+    where,
+    outFields:      '*',
+    returnGeometry: 'false',
+    f:              'json',
+    token:          TOKEN.accessToken,
+  });
+  const data = await arcgisFetch(`${MCC_SERVICE.url}/query?${params}`);
+  const feats = data.features || [];
+  if (feats.length === 0) return null;
+  // If multiple records match (shouldn't happen), surface the first.
+  return feats[0].attributes;
 }

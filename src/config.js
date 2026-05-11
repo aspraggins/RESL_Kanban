@@ -116,6 +116,49 @@ export const FIELDS = {
 };
 
 // ============================================================================
+//  MCC Status Mapper — secondary service joined to a resource record by
+//  MCC_number = request_number_rpt AND incidentid = mission_id_rpt.
+//  Carries the original county request that the deployment fulfills.
+//  Surfaced as a separate tab in the detail modal.
+// ============================================================================
+export const MCC_SERVICE = {
+  url: 'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/MCCStatusMapper2/FeatureServer/0',
+  fields: {
+    objectId:        'ObjectID',
+    globalId:        'GlobalID',
+    mccNumber:       'MCC_number',
+    incidentId:      'incidentid',
+    subject:         'MCC_subject',
+    type:            'MCC_type',
+    priority:        'MCC_priority',
+    status:          'MCC_status',
+    description:     'Description',
+    originator:      'MCC_originator',
+    mccPosition:     'MCC_position',
+    mccCreated:      'MCC_created',
+    entryDate:       'entrydate',
+    pocName:         'pocname',
+    pocPhone:        'pocPhone',
+    pocTitle:        'pocTitle',
+    subscriberName:  'subscribername',
+    assignTo:        'assign_to',
+    deliveryDate:    'deliverydate',
+    deliveryTime:    'deliverytime',
+    deliveryLocation:'delivery_location',
+    deliveryNotes:   'DeliveryNotes',
+    address:         'address',
+    county:          'county',
+    region:          'region',
+    lifeline:        'lifeline',
+    feeding:         'feeding',
+    creationDate:    'CreationDate',
+    creator:         'Creator',
+    editDate:        'EditDate',
+    editor:          'Editor',
+  },
+};
+
+// ============================================================================
 //  MISSION TYPE — coded values for the editable dropdown in the detail
 //  modal. Must match the layer's coded-value-domain on `mission_type` exactly.
 // ============================================================================

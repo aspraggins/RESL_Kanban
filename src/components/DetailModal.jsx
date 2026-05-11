@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FIELDS, MISSION_TYPES } from '../config.js';
+import { FIELDS, MISSION_TYPES, MCC_SERVICE } from '../config.js';
+import { fetchMccRequest } from '../service.js';
 
 // Pretty-print a date+time field (epoch ms). Used for fields like
 // EditDate / CreationDate / expected_arrival.
@@ -119,6 +120,12 @@ function EditableSelectRow({ label, value, options, field, objectId, onUpdate })
 }
 
 export default function DetailModal({ r, onClose, onUpdate }) {
+  const [activeTab, setActiveTab] = useState('resource'); // 'resource' | 'mcc'
+
+  // MCC tab state. Cached on the modal instance so switching tabs back
+  // and forth doesn't re-fetch.
+  const [mccState, setMccState] = useState({ status: 'idle', data: null, error: '' });
+
   // ESC closes the modal
   useEffect(() => {
     if (!r) return;
@@ -126,6 +133,34 @@ export default function DetailModal({ r, onClose, onUpdate }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [r, onClose]);
+
+  // Reset tab + MCC cache whenever a different row is shown.
+  useEffect(() => {
+    setActiveTab('resource');
+    setMccState({ status: 'idle', data: null, error: '' });
+  }, [r && r.objectid]);
+
+  // Lazy-load the MCC record the first time the user opens the tab.
+  useEffect(() => {
+    if (!r) return;
+    if (activeTab !== 'mcc') return;
+    if (mccState.status !== 'idle') return;
+    let cancelled = false;
+    setMccState({ status: 'loading', data: null, error: '' });
+    fetchMccRequest({
+      requestNumber: r.request_number_rpt,
+      missionId:     r.mission_id_rpt,
+    })
+      .then((data) => {
+        if (cancelled) return;
+        setMccState({ status: data ? 'loaded' : 'empty', data: data || null, error: '' });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setMccState({ status: 'error', data: null, error: err.message || String(err) });
+      });
+    return () => { cancelled = true; };
+  }, [activeTab, r, mccState.status]);
 
   if (!r) return null;
 
@@ -150,6 +185,31 @@ export default function DetailModal({ r, onClose, onUpdate }) {
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </header>
 
+        <div className="modal-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'resource'}
+            className={`modal-tab${activeTab === 'resource' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('resource')}
+          >
+            Resource
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'mcc'}
+            className={`modal-tab${activeTab === 'mcc' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('mcc')}
+            title="Original MCC request from the county"
+          >
+            MCC Request
+          </button>
+        </div>
+
+        {activeTab === 'mcc' ? (
+          <MccTabBody state={mccState} />
+        ) : (
         <div className="modal-body">
           <Section title="Resource" rows={[
             { label: 'Kind',            value: r.resource_kind },
@@ -225,7 +285,104 @@ export default function DetailModal({ r, onClose, onUpdate }) {
             { label: 'GlobalID', value: r.globalid },
           ]} />
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── MCC tab body ────────────────────────────────────────────────────
+// Shows the matched MCC request from MCC_SERVICE. Lazily loaded — the
+// modal passes us the state machine via `state` so we can render the
+// idle/loading/loaded/empty/error variants without owning the fetch.
+function MccTabBody({ state }) {
+  if (state.status === 'idle' || state.status === 'loading') {
+    return (
+      <div className="modal-body modal-loading">
+        <div className="spinner" />
+        <p className="muted small">Loading MCC request…</p>
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="modal-body">
+        <div className="empty-banner">
+          <strong>Couldn't load the MCC request.</strong>
+          <div className="muted small">{state.error}</div>
+        </div>
+      </div>
+    );
+  }
+  if (state.status === 'empty' || !state.data) {
+    return (
+      <div className="modal-body">
+        <div className="picker-empty">
+          <strong>No matching MCC request found.</strong>
+          <p className="muted small">
+            No record in <code>MCCStatusMapper2</code> matches this
+            resource's request number + mission. The request may not
+            have been entered, or the values may not line up.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const m = state.data;
+  const f = MCC_SERVICE.fields;
+  return (
+    <div className="modal-body">
+      <Section title="Request" rows={[
+        { label: 'MCC #',     value: m[f.mccNumber] },
+        { label: 'Subject',   value: m[f.subject] },
+        { label: 'Type',      value: m[f.type] },
+        { label: 'Priority',  value: m[f.priority] },
+        { label: 'Status',    value: m[f.status] },
+        { label: 'Lifeline',  value: m[f.lifeline] },
+        { label: 'Feeding',   value: m[f.feeding] },
+      ]} />
+
+      <Section title="Description" rows={[
+        { label: 'Description', value: m[f.description], multi: true },
+      ]} />
+
+      <Section title="Originator" rows={[
+        { label: 'Originator', value: m[f.originator] },
+        { label: 'Position',   value: m[f.mccPosition] },
+        { label: 'MCC created', value: fmtDateTime(m[f.mccCreated]) },
+        { label: 'Entry date',  value: fmtDateTime(m[f.entryDate]) },
+      ]} />
+
+      <Section title="Point of contact" rows={[
+        { label: 'Name',       value: m[f.pocName] },
+        { label: 'Title',      value: m[f.pocTitle] },
+        { label: 'Phone',      value: m[f.pocPhone] },
+        { label: 'Subscriber', value: m[f.subscriberName] },
+      ]} />
+
+      <Section title="Delivery" rows={[
+        { label: 'Delivery date',     value: fmtDate(m[f.deliveryDate]) },
+        { label: 'Delivery time',     value: fmtDateTime(m[f.deliveryTime]) },
+        { label: 'Delivery location', value: m[f.deliveryLocation] },
+        { label: 'Delivery notes',    value: m[f.deliveryNotes], multi: true },
+        { label: 'Assigned to',       value: m[f.assignTo] },
+      ]} />
+
+      <Section title="Location" rows={[
+        { label: 'Address', value: m[f.address] },
+        { label: 'County',  value: m[f.county] },
+        { label: 'Region',  value: m[f.region] },
+      ]} />
+
+      <Section title="Audit" rows={[
+        { label: 'Created',  value: fmtDateTime(m[f.creationDate]) },
+        { label: 'Creator',  value: m[f.creator] },
+        { label: 'Edited',   value: fmtDateTime(m[f.editDate]) },
+        { label: 'Editor',   value: m[f.editor] },
+        { label: 'ObjectID', value: m[f.objectId] },
+        { label: 'GlobalID', value: m[f.globalId] },
+      ]} />
     </div>
   );
 }

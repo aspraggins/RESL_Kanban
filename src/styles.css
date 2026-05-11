@@ -606,6 +606,40 @@ button { font-family: inherit; cursor: pointer; }
   padding: 14px 20px 20px;
   overflow-y: auto;
 }
+.modal-body.modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 160px;
+}
+
+/* Tab strip under the modal header */
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.modal-tab {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.modal-tab:hover { color: var(--text); }
+.modal-tab.is-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
 .modal-section + .modal-section { margin-top: 14px; }
 .modal-section h3 {
   margin: 0 0 6px;
