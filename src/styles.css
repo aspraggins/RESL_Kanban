@@ -102,6 +102,73 @@ button { font-family: inherit; cursor: pointer; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ─── Mission picker (post-OAuth gate) ──────────────────────────────── */
+.picker-wrap {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 18px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.picker-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 640px;
+  box-shadow: var(--shadow);
+}
+.picker-card h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+.picker-card > p { margin: 0 0 18px; }
+.mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mission-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .12s, background .12s, transform .05s;
+  font-family: inherit;
+}
+.mission-row:hover {
+  border-color: var(--primary);
+  background: #f6f9fd;
+}
+.mission-row:active { transform: translateY(1px); }
+.mission-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mission-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.mission-meta .dot { color: #c7d0dc; }
+.picker-empty {
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #fafbfc;
+  text-align: center;
+}
+.picker-empty strong { display: block; margin-bottom: 6px; }
+.picker-empty p { margin: 0; }
+
 /* ─── Login ──────────────────────────────────────────────────────────── */
 .login-screen {
   flex: 1;

@@ -49,7 +49,7 @@ export function MainFilters({ resources, filters, onFilters, lockedFilters = new
 
   return (
     <div className="main-filters">
-      <Select label="Mission"          value={filters.mission} options={missions} onChange={(v) => set({ mission: v })} locked={isLocked('mission')} />
+      <Select label="Mission"          value={filters.mission} options={missions} onChange={(v) => set({ mission: v })} locked={isLocked('mission')} required />
       <Select label="Coordinating ESF" value={filters.esf}     options={esfs}     onChange={(v) => set({ esf: v })}     locked={isLocked('esf')} />
       <Select label="Kind"             value={filters.kind}    options={kinds}    onChange={(v) => set({ kind: v })}    locked={isLocked('kind')} />
       <Select label="County"           value={filters.county}  options={counties} onChange={(v) => set({ county: v })}  locked={isLocked('county')} />
@@ -134,10 +134,11 @@ export function ColumnToggles({ hiddenColumns, onToggleColumn, onResetColumns })
   );
 }
 
-function Select({ label, value, options, onChange, locked = false }) {
+function Select({ label, value, options, onChange, locked = false, required = false }) {
   // When locked (URL parameter), render the value as a wrapping text
   // chip rather than a disabled <select> — selects truncate long values
   // and the user can't see what they're scoped to.
+  // When `required`, the empty "All" option is omitted (Mission, post-pick).
   return (
     <label className={`filter-select${locked ? ' is-locked' : ''}`}>
       <span className="muted small">
@@ -148,7 +149,7 @@ function Select({ label, value, options, onChange, locked = false }) {
         <div className="locked-value" title={value}>{value}</div>
       ) : (
         <select value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value="">All</option>
+          {!required && <option value="">All</option>}
           {options.map((o) => (
             <option key={o} value={o}>{o}</option>
           ))}
