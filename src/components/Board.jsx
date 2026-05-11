@@ -283,9 +283,15 @@ export default function Board({ onSignOut }) {
 
     if (statusToColumnId(current[FIELDS.status]) === targetColId) return;
 
-    const previous = current[FIELDS.status];
+    const previousStatus = current[FIELDS.status];
+    const previousEdit   = current[FIELDS.editDate];
+    const now = Date.now();
+    // Optimistically bump EditDate too so freshness highlight fires
+    // immediately ("Just now") instead of waiting for the next refresh.
     setResources((rs) =>
-      rs.map((r) => (r[FIELDS.objectId] === oid ? { ...r, [FIELDS.status]: newStatus } : r)),
+      rs.map((r) => (r[FIELDS.objectId] === oid
+        ? { ...r, [FIELDS.status]: newStatus, [FIELDS.editDate]: now }
+        : r)),
     );
     setPending((p) => new Set(p).add(oid));
 
@@ -295,7 +301,9 @@ export default function Board({ onSignOut }) {
       console.error('updateStatus failed:', err);
       setError(`Could not update OBJECTID ${oid}: ${err.message}`);
       setResources((rs) =>
-        rs.map((r) => (r[FIELDS.objectId] === oid ? { ...r, [FIELDS.status]: previous } : r)),
+        rs.map((r) => (r[FIELDS.objectId] === oid
+          ? { ...r, [FIELDS.status]: previousStatus, [FIELDS.editDate]: previousEdit }
+          : r)),
       );
     } finally {
       setPending((p) => {
@@ -410,25 +418,27 @@ export default function Board({ onSignOut }) {
         r={detailRow}
         onClose={() => setDetailRow(null)}
         onUpdate={async (objectId, partial) => {
-          // Snapshot the old values for rollback
+          // Snapshot the old values (including EditDate) for rollback
           const before = resources.find((row) => row[FIELDS.objectId] === objectId);
           if (!before) throw new Error('Row not found');
-          const snapshot = {};
+          const snapshot = { [FIELDS.editDate]: before[FIELDS.editDate] };
           for (const k of Object.keys(partial)) snapshot[k] = before[k];
 
-          // Optimistic update — both the resources list AND the detailRow
-          // so the modal reflects the new value immediately.
+          // Optimistic update — bump EditDate locally so the freshness
+          // highlight fires right away. The next refresh will sync the
+          // server-authoritative EditDate.
+          const optimistic = { ...partial, [FIELDS.editDate]: Date.now() };
           setResources((rs) =>
-            rs.map((row) => (row[FIELDS.objectId] === objectId ? { ...row, ...partial } : row)),
+            rs.map((row) => (row[FIELDS.objectId] === objectId ? { ...row, ...optimistic } : row)),
           );
           setDetailRow((prev) =>
-            prev && prev[FIELDS.objectId] === objectId ? { ...prev, ...partial } : prev,
+            prev && prev[FIELDS.objectId] === objectId ? { ...prev, ...optimistic } : prev,
           );
 
           try {
             await updateAttributes(objectId, partial);
           } catch (err) {
-            // Roll back
+            // Roll back (including EditDate)
             setResources((rs) =>
               rs.map((row) => (row[FIELDS.objectId] === objectId ? { ...row, ...snapshot } : row)),
             );
