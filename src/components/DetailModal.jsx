@@ -6,17 +6,29 @@ import { getToken } from '../auth.js';
 const FOLLOWUP_AUTHOR_KEY = 'resl_kanban_followup_author_v1';
 
 function loadAuthorPrefs() {
+  const tok = getToken();
+  const tokenName = tok?.fullName || tok?.username || '';
   try {
     const raw = localStorage.getItem(FOLLOWUP_AUTHOR_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // If the previously-saved name looks like an AGOL username (the
+      // old default before we started capturing fullName), upgrade it.
+      if (saved.username && tok?.fullName &&
+          saved.username === tok?.username && saved.username !== tok.fullName) {
+        saved.username = tok.fullName;
+      }
+      // Also pull email from token if the saved record has none.
+      if (!saved.email && tok?.email) saved.email = tok.email;
+      return saved;
+    }
   } catch { /* ignore */ }
-  const tok = getToken();
   return {
-    username: tok?.username || '',
+    username: tokenName,
     position: '',
     agency:   '',
     phone:    '',
-    email:    '',
+    email:    tok?.email || '',
   };
 }
 function saveAuthorPrefs(prefs) {

@@ -78,7 +78,29 @@ function _tokenFromResponse(data) {
     expiresAt:        now + expSec * 1000,
     refreshExpiresAt: refSec ? now + refSec * 1000 : (TOKEN && TOKEN.refreshExpiresAt) || null,
     username:         data.username || (TOKEN && TOKEN.username) || null,
+    // Preserved across refreshes — populated by _fetchProfileInto() after
+    // initial exchange or first resume.
+    fullName:         (TOKEN && TOKEN.fullName) || null,
+    email:            (TOKEN && TOKEN.email)    || null,
   };
+}
+
+// Fetch the authenticated user's profile (fullName, email, etc.) from
+// AGOL and mutate the token in place. Failures are non-fatal — we just
+// fall back to the username.
+async function _fetchProfileInto(tok) {
+  if (!tok || !tok.accessToken) return tok;
+  try {
+    const url = `https://www.arcgis.com/sharing/rest/community/self?f=json&token=${encodeURIComponent(tok.accessToken)}`;
+    const res = await fetch(url);
+    if (!res.ok) return tok;
+    const data = await res.json();
+    if (data.error) return tok;
+    if (data.fullName) tok.fullName = data.fullName;
+    if (data.email)    tok.email    = data.email;
+    if (data.username && !tok.username) tok.username = data.username;
+  } catch { /* non-fatal */ }
+  return tok;
 }
 
 // ── Iframe detection ───────────────────────────────────────────────────────
@@ -212,7 +234,9 @@ async function exchangeCodeForToken(code) {
   if (!data.access_token) throw new Error('No access token returned');
   sessionStorage.removeItem('oauth_verifier');
   sessionStorage.removeItem('oauth_state');
-  return _tokenFromResponse(data);
+  const tok = _tokenFromResponse(data);
+  await _fetchProfileInto(tok);
+  return tok;
 }
 
 // ── Silent refresh ────────────────────────────────────────────────────────
@@ -246,6 +270,11 @@ export async function ensureFreshToken() {
 export async function tryResume() {
   loadStoredToken();
   if (!TOKEN) return false;
+  // Lazy-upgrade tokens cached before fullName/email were being captured.
+  if ((!TOKEN.fullName || !TOKEN.email) && TOKEN.accessToken) {
+    await _fetchProfileInto(TOKEN);
+    saveToken(TOKEN);
+  }
   if (TOKEN.expiresAt && Date.now() < TOKEN.expiresAt - CONFIG.refreshBufferMs) return true;
   if (!TOKEN.refreshToken) { clearStoredToken(); return false; }
   try {
