@@ -751,6 +751,13 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 14px;
   color: var(--text);
 }
+.followup-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.followup-name-line .dot { color: #c7d0dc; }
 .followup-body {
   font-size: 13px;
   line-height: 1.5;
@@ -771,6 +778,67 @@ button { font-family: inherit; cursor: pointer; }
 }
 .followup-contact a:hover { text-decoration: underline; }
 .followup-contact .dot { color: #c7d0dc; }
+
+/* Followups tab header (count + Add button on one row) */
+.followups-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.followup-add { white-space: nowrap; }
+
+/* Followup composer form */
+.followup-composer {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.composer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.composer-field > span { line-height: 1; }
+.composer-field input,
+.composer-field textarea {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  width: 100%;
+}
+.composer-field textarea {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.composer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.composer-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 .modal-edit-select {
   font-family: inherit;
   font-size: 13px;

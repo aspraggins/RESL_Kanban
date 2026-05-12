@@ -1,6 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FIELDS, MISSION_TYPES, MCC_SERVICE, FOLLOWUP_SERVICE } from '../config.js';
-import { fetchMccRequest, fetchFollowups } from '../service.js';
+import { fetchMccRequest, fetchFollowups, addFollowup } from '../service.js';
+import { getToken } from '../auth.js';
+
+const FOLLOWUP_AUTHOR_KEY = 'resl_kanban_followup_author_v1';
+
+function loadAuthorPrefs() {
+  try {
+    const raw = localStorage.getItem(FOLLOWUP_AUTHOR_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  const tok = getToken();
+  return {
+    username: tok?.username || '',
+    position: '',
+    agency:   '',
+    phone:    '',
+    email:    '',
+  };
+}
+function saveAuthorPrefs(prefs) {
+  try { localStorage.setItem(FOLLOWUP_AUTHOR_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+}
 
 // Pretty-print a date+time field. Handles both:
 //   • numeric epoch ms (the usual AGOL date type)
@@ -148,6 +169,8 @@ export default function DetailModal({ r, onClose, onUpdate }) {
   // Followups tab state (array of records).
   const [fuState, setFuState] = useState({ status: 'idle', data: [], error: '' });
   const fuFetchedFor = useRef(null);
+  const fuTriggeredFor = useRef(null);
+  const [showComposer, setShowComposer] = useState(false);
 
   // ESC closes the modal
   useEffect(() => {
@@ -162,8 +185,10 @@ export default function DetailModal({ r, onClose, onUpdate }) {
     setActiveTab('resource');
     setMccState({ status: 'idle', data: null, error: '' });
     setFuState({ status: 'idle', data: [], error: '' });
+    setShowComposer(false);
     mccFetchedFor.current = null;
     fuFetchedFor.current = null;
+    fuTriggeredFor.current = null;
   }, [r && r.objectid]);
 
   // Lazy-load the MCC record the first time the user opens the tab for
@@ -192,29 +217,35 @@ export default function DetailModal({ r, onClose, onUpdate }) {
       });
   }, [activeTab, r]);
 
-  // Same lazy-load pattern for the Followups tab — fetch on first open
-  // per row, cache in state, guard with a ref.
-  useEffect(() => {
+  // Callable fetch for the Followups tab — used both by the lazy-load
+  // effect (on first tab open) and by the post-add refresh.
+  const reloadFollowups = useCallback(() => {
     if (!r) return;
-    if (activeTab !== 'followups') return;
-    const myToken = r.objectid;
-    if (fuFetchedFor.current === myToken) return;
-    fuFetchedFor.current = myToken;
-
+    const token = Symbol(`followups-${r.objectid}-${Date.now()}`);
+    fuFetchedFor.current = token;
     setFuState({ status: 'loading', data: [], error: '' });
     fetchFollowups({
       requestNumber: r.request_number_rpt,
       missionId:     r.mission_id_rpt,
     })
       .then((data) => {
-        if (fuFetchedFor.current !== myToken) return;
+        if (fuFetchedFor.current !== token) return;
         setFuState({ status: data.length ? 'loaded' : 'empty', data, error: '' });
       })
       .catch((err) => {
-        if (fuFetchedFor.current !== myToken) return;
+        if (fuFetchedFor.current !== token) return;
         setFuState({ status: 'error', data: [], error: err.message || String(err) });
       });
-  }, [activeTab, r]);
+  }, [r]);
+
+  // First-open trigger — only fires once per (tab, row) combination.
+  useEffect(() => {
+    if (!r) return;
+    if (activeTab !== 'followups') return;
+    if (fuTriggeredFor.current === r.objectid) return;
+    fuTriggeredFor.current = r.objectid;
+    reloadFollowups();
+  }, [activeTab, r, reloadFollowups]);
 
   if (!r) return null;
 
@@ -274,7 +305,18 @@ export default function DetailModal({ r, onClose, onUpdate }) {
         {activeTab === 'mcc' ? (
           <MccTabBody state={mccState} />
         ) : activeTab === 'followups' ? (
-          <FollowupsTabBody state={fuState} />
+          <FollowupsTabBody
+            state={fuState}
+            canEdit={!!onUpdate}
+            resource={r}
+            showComposer={showComposer}
+            onOpenComposer={() => setShowComposer(true)}
+            onCancelComposer={() => setShowComposer(false)}
+            onSubmitted={() => {
+              setShowComposer(false);
+              reloadFollowups();
+            }}
+          />
         ) : (
         <div className="modal-body">
           <Section title="Resource" rows={[
@@ -453,18 +495,41 @@ function MccTabBody({ state }) {
 // Renders an ordered list (most recent first) of followup entries. Each
 // entry shows a timestamp + author header, the followup body text, and
 // a small contact footer.
-function FollowupsTabBody({ state }) {
+function FollowupsTabBody({
+  state, canEdit, resource,
+  showComposer, onOpenComposer, onCancelComposer, onSubmitted,
+}) {
+  const composer = showComposer && canEdit && resource ? (
+    <FollowupComposer
+      resource={resource}
+      onCancel={onCancelComposer}
+      onSubmitted={onSubmitted}
+    />
+  ) : null;
+
+  const addBtn = canEdit && !showComposer ? (
+    <button type="button" className="btn btn-primary btn-sm followup-add" onClick={onOpenComposer}>
+      + Add followup
+    </button>
+  ) : null;
+
   if (state.status === 'idle' || state.status === 'loading') {
     return (
-      <div className="modal-body modal-loading">
-        <div className="spinner" />
-        <p className="muted small">Loading followups…</p>
+      <div className="modal-body">
+        {addBtn}
+        {composer}
+        <div className="modal-loading">
+          <div className="spinner" />
+          <p className="muted small">Loading followups…</p>
+        </div>
       </div>
     );
   }
   if (state.status === 'error') {
     return (
       <div className="modal-body">
+        {addBtn}
+        {composer}
         <div className="empty-banner">
           <strong>Couldn't load followups.</strong>
           <div className="muted small">{state.error}</div>
@@ -475,12 +540,13 @@ function FollowupsTabBody({ state }) {
   if (state.status === 'empty' || state.data.length === 0) {
     return (
       <div className="modal-body">
+        {addBtn}
+        {composer}
         <div className="picker-empty">
           <strong>No followups yet.</strong>
           <p className="muted small">
             No followup entries are tied to this request number and
-            mission yet. New followups added in the upstream form will
-            appear here.
+            mission yet. Use the Add button above to enter one.
           </p>
         </div>
       </div>
@@ -490,9 +556,13 @@ function FollowupsTabBody({ state }) {
   const f = FOLLOWUP_SERVICE.fields;
   return (
     <div className="modal-body">
-      <div className="muted small followups-count">
-        {state.data.length} followup{state.data.length === 1 ? '' : 's'}
+      <div className="followups-header">
+        <div className="muted small followups-count">
+          {state.data.length} followup{state.data.length === 1 ? '' : 's'}
+        </div>
+        {addBtn}
       </div>
+      {composer}
       <ol className="followups-list">
         {state.data.map((fu) => {
           const when     = fmtDateTime(fu[f.entryDate]);
@@ -506,9 +576,16 @@ function FollowupsTabBody({ state }) {
             <li key={fu[f.objectId]} className="followup-card">
               <header className="followup-head">
                 <div className="followup-author">
-                  <strong>{author}</strong>
-                  {when     && <span className="muted small">{when}</span>}
-                  {position && <span className="muted small">{position}</span>}
+                  <div className="followup-name-line">
+                    <strong>{author}</strong>
+                    {position && (
+                      <>
+                        <span className="dot muted">·</span>
+                        <span className="muted small">{position}</span>
+                      </>
+                    )}
+                  </div>
+                  {when && <span className="muted small">{when}</span>}
                 </div>
               </header>
               {body && <div className="followup-body">{String(body)}</div>}
@@ -530,5 +607,102 @@ function FollowupsTabBody({ state }) {
         })}
       </ol>
     </div>
+  );
+}
+
+// ─── Add-followup composer ──────────────────────────────────────────
+function FollowupComposer({ resource, onCancel, onSubmitted }) {
+  const f = FOLLOWUP_SERVICE.fields;
+  const [author, setAuthor] = useState(() => loadAuthorPrefs());
+  const [text,   setText]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error,      setError]      = useState('');
+
+  const update = (patch) => setAuthor((prev) => ({ ...prev, ...patch }));
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) {
+      setError('Followup text is required.');
+      return;
+    }
+    if (!author.username.trim()) {
+      setError('Your name is required.');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      const attrs = {
+        [f.requestNumber]:  String(resource.request_number_rpt || ''),
+        [f.mission]:        String(resource.mission_id_rpt || ''),
+        [f.entryDate]:      new Date().toISOString(),
+        [f.data]:           text.trim(),
+        [f.username]:       author.username.trim(),
+        [f.positionName]:   author.position.trim(),
+        [f.updatingAgency]: author.agency.trim(),
+        [f.phone]:          author.phone.trim(),
+        [f.email]:          author.email.trim(),
+        [f.updatedBy]:      author.username.trim(),
+      };
+      await addFollowup(attrs);
+      saveAuthorPrefs(author);
+      setText('');
+      onSubmitted && onSubmitted();
+    } catch (ex) {
+      setError(ex.message || 'Failed to save followup.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="followup-composer" onSubmit={onSubmit}>
+      <label className="composer-field composer-textarea">
+        <span className="muted small">Followup note</span>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={4}
+          placeholder="What's the update?"
+          maxLength={5000}
+          autoFocus
+        />
+      </label>
+
+      <div className="composer-grid">
+        <label className="composer-field">
+          <span className="muted small">Your name</span>
+          <input type="text" value={author.username} onChange={(e) => update({ username: e.target.value })} />
+        </label>
+        <label className="composer-field">
+          <span className="muted small">Position</span>
+          <input type="text" value={author.position} onChange={(e) => update({ position: e.target.value })} />
+        </label>
+        <label className="composer-field">
+          <span className="muted small">Agency</span>
+          <input type="text" value={author.agency} onChange={(e) => update({ agency: e.target.value })} />
+        </label>
+        <label className="composer-field">
+          <span className="muted small">Email</span>
+          <input type="email" value={author.email} onChange={(e) => update({ email: e.target.value })} />
+        </label>
+        <label className="composer-field">
+          <span className="muted small">Phone</span>
+          <input type="tel" value={author.phone} onChange={(e) => update({ phone: e.target.value })} />
+        </label>
+      </div>
+
+      {error && <div className="composer-error">{error}</div>}
+
+      <div className="composer-actions">
+        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? 'Saving…' : 'Save followup'}
+        </button>
+      </div>
+    </form>
   );
 }

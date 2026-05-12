@@ -157,6 +157,32 @@ export async function fetchMccRequest({ requestNumber, missionId }) {
   return feats[0].attributes;
 }
 
+// Add a new feature to the followups service. `attributes` is an
+// object keyed by AGOL field names. Returns the addResults entry on
+// success; throws on failure.
+export async function addFollowup(attributes) {
+  await ensureFreshToken();
+  const TOKEN = getToken();
+  const body = new URLSearchParams({
+    f:        'json',
+    token:    TOKEN.accessToken,
+    features: JSON.stringify([{ attributes }]),
+  });
+  const data = await arcgisFetch(`${FOLLOWUP_SERVICE.url}/addFeatures`, {
+    method: 'POST',
+    body,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  const result = (data.addResults && data.addResults[0]) || null;
+  if (!result || !result.success) {
+    const msg = result && result.error
+      ? `${result.error.code}: ${result.error.description}`
+      : 'Add failed';
+    throw new Error(msg);
+  }
+  return result;
+}
+
 // ─── Followups service ─────────────────────────────────────────────
 // Many-to-one with each resource. Matches mcc_number_text and mission.
 // Returns an array of attribute objects sorted newest-first by
