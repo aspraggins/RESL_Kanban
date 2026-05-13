@@ -861,6 +861,15 @@ button { font-family: inherit; cursor: pointer; }
   width: 100px;
   text-align: right;
 }
+.modal-edit-input--text {
+  width: 260px;
+  max-width: 100%;
+  text-align: left;
+}
+.modal-edit-input--date {
+  width: 160px;
+  text-align: left;
+}
 .modal-edit-input:focus { outline: 2px solid var(--primary); outline-offset: 0; }
 .modal-edit-input:disabled { background: #f6f8fb; cursor: not-allowed; }
 .modal-edit-status { font-style: italic; }

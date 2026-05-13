@@ -186,6 +186,26 @@ export const MCC_SERVICE = {
 //  modal. Must match the layer's coded-value-domain on `mission_type` exactly.
 // ============================================================================
 export const MISSION_TYPES = [
+  'Search and Rescue',
+  'Law Enforcement',
+  'Firefighting',
+  'Emergency Medical',
+  'Public Health',
+  'Hazardous Materials',
+  'Incident Management',
+  'Logistics',
+  'Communications',
+  'Recovery',
+  'Debris Management',
+  'Utilities Restoration',
+];
+
+// ============================================================================
+//  TEAM KIND — coded values for the editable dropdown in the detail modal.
+//  Selecting "Other" reveals a free-text "Other description" field that
+//  writes to `resource_other` — same shape as the Survey123 form.
+// ============================================================================
+export const TEAM_KINDS = [
   'Aircraft',
   'Ambulance Strike Teams',
   'Border Support',
@@ -203,7 +223,6 @@ export const MISSION_TYPES = [
   'Mental Health Strike Team',
   'Military Police',
   'National Guard',
-  'Other',
   'Pharmacist',
   'Public Assistance Team',
   'Public Health Nurses',
@@ -214,6 +233,7 @@ export const MISSION_TYPES = [
   'TERT',
   'Transportation',
   'US&R',
+  'Other',
 ];
 
 // ============================================================================
