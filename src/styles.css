@@ -851,6 +851,18 @@ button { font-family: inherit; cursor: pointer; }
 }
 .modal-edit-select:focus { outline: 2px solid var(--primary); outline-offset: 0; }
 .modal-edit-select:disabled { background: #f6f8fb; cursor: not-allowed; }
+.modal-edit-input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  width: 100px;
+  text-align: right;
+}
+.modal-edit-input:focus { outline: 2px solid var(--primary); outline-offset: 0; }
+.modal-edit-input:disabled { background: #f6f8fb; cursor: not-allowed; }
 .modal-edit-status { font-style: italic; }
 .error-text { color: var(--danger); }
 

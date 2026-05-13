@@ -32,8 +32,17 @@ function fmtRelative(ms) {
   return `Latest activity: ${d.toLocaleString()}`;
 }
 
-export default function MissionPicker({ resources, loading, onPick }) {
-  const missions = useMemo(() => summarizeMissions(resources), [resources]);
+export default function MissionPicker({ resources, loading, allowedMissions, onPick }) {
+  const missions = useMemo(() => {
+    let m = summarizeMissions(resources);
+    if (allowedMissions && allowedMissions.length) {
+      const allow = new Set(
+        allowedMissions.map((s) => String(s).trim().toLowerCase()),
+      );
+      m = m.filter((x) => allow.has(String(x.name).trim().toLowerCase()));
+    }
+    return m;
+  }, [resources, allowedMissions]);
 
   return (
     <div className="picker-wrap">

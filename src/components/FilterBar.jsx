@@ -20,8 +20,17 @@ function uniques(rows, key) {
 //  is a Set of filter keys (e.g. {'mission','esf'}) that came from URL
 //  parameters at boot — those dropdowns render disabled with a lock
 //  marker and are excluded from the active-count and Clear behavior.
-export function MainFilters({ resources, filters, onFilters, lockedFilters = new Set() }) {
-  const missions = useMemo(() => uniques(resources, 'mission_id_rpt'), [resources]);
+export function MainFilters({ resources, filters, onFilters, lockedFilters = new Set(), allowedMissions = null }) {
+  const missions = useMemo(() => {
+    let opts = uniques(resources, 'mission_id_rpt');
+    if (allowedMissions && allowedMissions.length) {
+      const allow = new Set(
+        allowedMissions.map((s) => String(s).trim().toLowerCase()),
+      );
+      opts = opts.filter((o) => allow.has(String(o).trim().toLowerCase()));
+    }
+    return opts;
+  }, [resources, allowedMissions]);
   const esfs     = useMemo(() => uniques(resources, 'coordinator'),    [resources]);
   const counties = useMemo(() => uniques(resources, 'county_rpt'),     [resources]);
   const kinds    = useMemo(() => uniques(resources, 'resource_kind'),  [resources]);

@@ -24,6 +24,18 @@ const EMPTY_FILTERS = { mission: '', esf: '', county: '', kind: '', search: '' }
 // always user-editable.
 const LOCKABLE_FILTERS = ['mission', 'esf', 'county', 'kind'];
 
+// Allowed-missions scope: `?missions=A,B,C` constrains both the
+// mission picker and the Mission dropdown to those values only. The
+// user can still switch between them; they just can't see any others.
+// Returns null when not set, otherwise an array of mission names.
+function readUrlMissionScope() {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('missions');
+  if (!raw) return null;
+  const parts = raw.split(/[;,]/).map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts : null;
+}
+
 // Read-only mode: `?readonly=1` (or true/yes) disables drag-drop and
 // hides editable controls in the detail modal. Useful for embedding a
 // safe public-or-stakeholder view that can't accidentally mutate data.
@@ -163,6 +175,7 @@ export default function Board({ onSignOut }) {
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
   const [detailRow,    setDetailRow]     = useState(null);
   const [readOnly]     = useState(() => readUrlReadOnly());
+  const [allowedMissions] = useState(() => readUrlMissionScope());
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -285,7 +298,8 @@ export default function Board({ onSignOut }) {
       await updateStatus(oid, newStatus);
     } catch (err) {
       console.error('updateStatus failed:', err);
-      setError(`Could not update OBJECTID ${oid}: ${err.message}`);
+      const label = current[FIELDS.requestNumber] ? `Request #${current[FIELDS.requestNumber]}` : 'this resource';
+      setError(`Could not update ${label}: ${err.message}`);
       setResources((rs) =>
         rs.map((r) => (r[FIELDS.objectId] === oid
           ? { ...r, [FIELDS.status]: previousStatus, [FIELDS.editDate]: previousEdit }
@@ -324,6 +338,7 @@ export default function Board({ onSignOut }) {
         <MissionPicker
           resources={resources}
           loading={loading}
+          allowedMissions={allowedMissions}
           onPick={(m) => setFilters({ ...filters, mission: m })}
         />
       ) : (
@@ -333,6 +348,7 @@ export default function Board({ onSignOut }) {
         filters={filters}
         onFilters={setFilters}
         lockedFilters={lockedFilters}
+        allowedMissions={allowedMissions}
       />
 
       {loading && !resources.length ? (

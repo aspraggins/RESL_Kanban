@@ -90,9 +90,25 @@ function describeEditDate(ms, status) {
   return { text: formatted, tier: null };
 }
 
+// Light pluralization — adds the right suffix when count != 1. Not
+// linguistically perfect (won't handle "Mouse → Mice"), but covers the
+// equipment-type noun shapes we see in this data ("Generator → Generators",
+// "Light Tower → Light Towers", "Wrench → Wrenches"). Words that
+// already end in `s` are left alone so we don't double-pluralize.
+function pluralize(noun, count) {
+  if (count === 1) return noun;
+  const s = String(noun).trim();
+  const lower = s.toLowerCase();
+  if (/s$/.test(lower))             return s;
+  if (/[^aeiou]y$/.test(lower))     return s.slice(0, -1) + 'ies';
+  if (/(x|z|ch|sh)$/.test(lower))   return s + 'es';
+  return s + 's';
+}
+
 // Given a row, return { qtyLine, nameLine } describing its quantity and
-// resource name based on its kind. Equipment, Team, and Tagged Inventory
-// have different relevant fields.
+// resource name. Phrasing pivots on the resource_kind so the card reads
+// naturally: "15 Generators" / "1 Generator" for equipment, "5 personnel"
+// / "1 team" for teams.
 function describeResource(r) {
   const kind   = (v(r, FIELDS.kind) || '').toLowerCase();
   const equipN = v(r, FIELDS.equipmentName) || v(r, FIELDS.equipmentType);
@@ -105,14 +121,27 @@ function describeResource(r) {
 
   // 1) Tagged inventory: item + qty_item, when present
   if (itemN && itemQ) return { qtyLine: `Item: ${itemQ}`, nameLine: itemN };
-  // 2) Equipment
+
+  // 2) Equipment — combine count + (pluralized) name into one line.
   if (kind.includes('equip') || equipN || equipQ) {
-    return { qtyLine: equipQ ? `Equipment: ${equipQ}` : 'Equipment', nameLine: equipN || fallbk };
+    const n = equipQ != null ? parseInt(equipQ, 10) : NaN;
+    const hasCount = Number.isFinite(n) && n > 0;
+    if (hasCount && equipN) {
+      return { qtyLine: `${n} ${pluralize(equipN, n)}`, nameLine: '' };
+    }
+    if (hasCount) {
+      return { qtyLine: `${n} equipment`, nameLine: fallbk };
+    }
+    return { qtyLine: 'Equipment', nameLine: equipN || fallbk };
   }
-  // 3) Team / Personnel
+
+  // 3) Team / Personnel — "5 personnel" when > 1, "1 team" otherwise.
   if (kind.includes('team') || teamN || persQ) {
-    return { qtyLine: persQ ? `Personnel: ${persQ}` : 'Team', nameLine: teamN || fallbk };
+    const n = persQ != null ? parseInt(persQ, 10) : NaN;
+    const qty = Number.isFinite(n) && n > 1 ? `${n} personnel` : '1 team';
+    return { qtyLine: qty, nameLine: teamN || fallbk };
   }
+
   // 4) Fallback
   return { qtyLine: '', nameLine: fallbk || itemN || equipN || teamN || '' };
 }
@@ -161,7 +190,7 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
       )}
       <div className="card-grid">
         <div className="card-left">
-          <div className="card-title">{reqNum ? `#${reqNum}` : `OID ${oid}`}</div>
+          <div className="card-title">{reqNum ? `#${reqNum}` : '—'}</div>
           {county && <div className="card-county">{county} County</div>}
           {edit.text && (
             <div className={`card-updated small${edit.tier ? ` is-${edit.tier === 'stale' ? 'stale' : `fresh-${edit.tier}`}` : ' muted'}`}>

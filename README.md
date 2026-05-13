@@ -133,10 +133,17 @@ Supported parameters:
 
 | Param | Locks | Example |
 | --- | --- | --- |
-| `mission` | Mission filter | `?mission=2026 Mission #8 Severe Winter Weather Monitoring` |
+| `mission` | Mission filter (single, locked) | `?mission=2026 Mission #8 Severe Winter Weather Monitoring` |
+| `missions` | Limits Mission picker + dropdown to a comma-separated list (user picks within scope) | `?missions=2026 Mission #8 Severe Winter Weather Monitoring,2025 Mission #49 - April 2 Severe Weather/Flood Monitoring` |
 | `esf` | Coordinating ESF | `?esf=ESF 4 - Forestry / Fire` |
 | `kind` | Resource Kind | `?kind=Equipment` |
 | `county` | County | `?county=Davidson` |
+| `readonly` | Disables drag-drop AND editing in the detail modal | `?readonly=1` (also accepts `true`, `yes`, `on`) |
+
+Read-only mode is great for stakeholder/public dashboard embeds where
+viewers should be able to see and search the data but never accidentally
+move a card or change a field. The header shows a small "🔒 Read-only"
+chip so it's clear what mode the view is in.
 
 Combine any number of them: `?mission=...&esf=...`. **You must URL-encode
 `#` as `%23`** — a literal `#` in a URL marks the fragment, so anything

@@ -78,6 +78,11 @@ const has = (v) => {
   return true;
 };
 
+// Helpers for the Resource section — equipment_count and personnel_count
+// only apply to one kind each (per the Survey123 `relevant` rules).
+const isEquipment = (r) => String(r?.resource_kind || '').toLowerCase().includes('equip');
+const isTeam      = (r) => String(r?.resource_kind || '').toLowerCase().includes('team');
+
 function Section({ title, rows }) {
   // Editable rows are always shown so users can fill in blanks; static
   // rows are hidden when empty.
@@ -87,8 +92,28 @@ function Section({ title, rows }) {
     <section className="modal-section">
       <h3>{title}</h3>
       <dl>
-        {visible.map((r) =>
-          r.editable ? (
+        {visible.map((r) => {
+          if (!r.editable) {
+            return (
+              <div className={`modal-row${r.multi ? ' multi' : ''}`} key={r.label}>
+                <dt>{r.label}</dt>
+                <dd>{String(r.value)}</dd>
+              </div>
+            );
+          }
+          if (r.type === 'number') {
+            return (
+              <EditableNumberRow
+                key={r.label}
+                label={r.label}
+                value={r.value}
+                field={r.field}
+                objectId={r.objectId}
+                onUpdate={r.onUpdate}
+              />
+            );
+          }
+          return (
             <EditableSelectRow
               key={r.label}
               label={r.label}
@@ -98,13 +123,8 @@ function Section({ title, rows }) {
               objectId={r.objectId}
               onUpdate={r.onUpdate}
             />
-          ) : (
-            <div className={`modal-row${r.multi ? ' multi' : ''}`} key={r.label}>
-              <dt>{r.label}</dt>
-              <dd>{String(r.value)}</dd>
-            </div>
-          ),
-        )}
+          );
+        })}
       </dl>
     </section>
   );
@@ -164,6 +184,79 @@ function EditableSelectRow({ label, value, options, field, objectId, onUpdate })
             <option key={o} value={o}>{o}</option>
           ))}
         </select>
+        {saving && <span className="muted small modal-edit-status">Saving…</span>}
+        {!saving && err && <span className="error-text small modal-edit-status">{err}</span>}
+      </dd>
+    </div>
+  );
+}
+
+// Editable integer input. Saves on blur or Enter — never on every
+// keystroke. Renders as plain text when onUpdate isn't provided
+// (read-only mode).
+function EditableNumberRow({ label, value, field, objectId, onUpdate }) {
+  const initial = value == null || value === '' ? '' : String(value);
+  const [local,   setLocal]   = useState(initial);
+  const [saving,  setSaving]  = useState(false);
+  const [err,     setErr]     = useState('');
+
+  // Sync local state when the row's value changes externally
+  // (e.g., optimistic update, refresh).
+  useEffect(() => { setLocal(initial); }, [initial]);
+
+  if (!onUpdate) {
+    if (!has(value)) return null;
+    return (
+      <div className="modal-row">
+        <dt>{label}</dt>
+        <dd>{String(value)}</dd>
+      </div>
+    );
+  }
+
+  const commit = async () => {
+    const trimmed = local.trim();
+    const parsed  = trimmed === '' ? null : parseInt(trimmed, 10);
+    if (trimmed !== '' && (!Number.isFinite(parsed) || parsed < 0)) {
+      setErr('Must be a non-negative whole number.');
+      return;
+    }
+    // No-op when unchanged
+    if ((parsed == null ? '' : String(parsed)) === initial) {
+      setErr('');
+      return;
+    }
+    setErr('');
+    setSaving(true);
+    try {
+      await onUpdate(objectId, { [field]: parsed });
+    } catch (ex) {
+      setErr(ex.message || 'Save failed');
+      setLocal(initial);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-row editable">
+      <dt>{label}</dt>
+      <dd>
+        <input
+          className="modal-edit-input"
+          type="number"
+          min="0"
+          step="1"
+          inputMode="numeric"
+          value={local}
+          onChange={(e) => setLocal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+            if (e.key === 'Escape') { setLocal(initial); setErr(''); e.currentTarget.blur(); }
+          }}
+          disabled={saving}
+        />
         {saving && <span className="muted small modal-edit-status">Saving…</span>}
         {!saving && err && <span className="error-text small modal-edit-status">{err}</span>}
       </dd>
@@ -262,7 +355,7 @@ export default function DetailModal({ r, onClose, onUpdate }) {
   if (!r) return null;
 
   const reqNum = r.request_number_rpt;
-  const title  = reqNum ? `Request #${reqNum}` : `OBJECTID ${r.objectid}`;
+  const title  = reqNum ? `Request #${reqNum}` : 'Resource details';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -337,16 +430,41 @@ export default function DetailModal({ r, onClose, onUpdate }) {
             { label: 'Description',     value: r.resource_main },
             { label: 'Equipment',       value: r.equipment },
             { label: 'Equipment type',  value: r.equipment_type },
-            { label: 'Equipment count', value: r.equipment_count },
+            // Show equipment_count editor only for Equipment resources.
+            // Saving it also writes qty_item to keep Survey123's
+            // calculated quantity in sync (Survey123 only recalculates
+            // at form-submit time; direct edits via this app bypass it).
+            !isTeam(r) && {
+              label: 'Equipment count',
+              value: r.equipment_count,
+              editable: true,
+              type: 'number',
+              field: 'equipment_count',
+              objectId: r[FIELDS.objectId],
+              onUpdate: onUpdate
+                ? (oid, partial) => onUpdate(oid, {
+                    ...partial,
+                    qty_item: partial.equipment_count,
+                  })
+                : undefined,
+            },
             { label: 'Team kind',       value: r.team_kind },
-            { label: 'Personnel',       value: r.personnel_count },
+            // Show personnel_count editor only for Team resources.
+            !isEquipment(r) && {
+              label: 'Personnel',
+              value: r.personnel_count,
+              editable: true,
+              type: 'number',
+              field: 'personnel_count',
+              objectId: r[FIELDS.objectId],
+              onUpdate,
+            },
             { label: 'Identifier',      value: r.identifier },
             { label: 'Tag #',           value: r.tag_number },
             { label: 'Item',            value: r.item },
-            { label: 'Quantity',        value: r.qty_item },
             { label: 'Make',            value: r.make },
             { label: 'Serial',          value: r.serial },
-          ]} />
+          ].filter(Boolean)} />
 
           <Section title="Mission" rows={[
             { label: 'Mission',        value: r.mission_id_rpt },
