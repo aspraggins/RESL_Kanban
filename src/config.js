@@ -241,26 +241,34 @@ export const TEAM_KINDS = [
 //  FIELDS.status when a card is dropped here. Tweak labels/values if the
 //  feature service uses different exact strings (e.g. "On-Scene" vs "On Scene").
 // ============================================================================
-// Workflow-style ordering: held/staged → en route → on scene → demobilized → canceled.
-// Unassigned is rendered separately (always first) by Board.jsx.
-// Colors are in the same family as the related Arcade symbology, with
-// En Route and Canceled nudged to darker shades so they're visually
-// distinct from On Hold / Demobilized.
+// All columns shown on the board in left-to-right order. `kind` controls
+// rendering and behavior:
+//   • 'mcc'        — populated from MCC_SERVICE; not a drop target.
+//   • 'status'     — a deployment-status column; accepts drops; writes
+//                    `value` to `item_status` on drop.
+//   • 'unassigned' — deployments whose status doesn't match any status
+//                    column. Accepts drops to clear `item_status`.
 export const COLUMNS = [
-  { id: 'onhold',      label: 'On Hold',     value: 'On Hold',     accent: '#45C8ED' },
-  { id: 'staged',      label: 'Staged',      value: 'Staged',      accent: '#FCFF00' },
-  { id: 'enroute',     label: 'En Route',    value: 'En Route',    accent: '#2563eb' },
-  { id: 'onscene',     label: 'On Scene',    value: 'On Scene',    accent: '#228B22' },
-  { id: 'demobilized', label: 'Demobilized', value: 'Demobilized', accent: '#ADADAD' },
-  { id: 'canceled',    label: 'Canceled',    value: 'Canceled',    accent: '#6b7280' },
+  { id: 'mcc',         label: 'MCC',         kind: 'mcc',        accent: '#0b5fa5', defaultHidden: false },
+  { id: 'onhold',      label: 'On Hold',     kind: 'status',     value: 'On Hold',     accent: '#45C8ED' },
+  { id: 'staged',      label: 'Staged',      kind: 'status',     value: 'Staged',      accent: '#FCFF00' },
+  { id: 'enroute',     label: 'En Route',    kind: 'status',     value: 'En Route',    accent: '#2563eb' },
+  { id: 'onscene',     label: 'On Scene',    kind: 'status',     value: 'On Scene',    accent: '#228B22' },
+  { id: 'demobilized', label: 'Demobilized', kind: 'status',     value: 'Demobilized', accent: '#ADADAD' },
+  { id: 'canceled',    label: 'Canceled',    kind: 'status',     value: 'Canceled',    accent: '#6b7280' },
+  { id: '_unassigned', label: 'Unassigned',  kind: 'unassigned', accent: '#94a3b8', defaultHidden: true },
 ];
+
+// Derived: just the drag-drop status columns (used by the drop handler
+// and the status-to-column mapper). Excludes MCC and Unassigned.
+export const STATUS_COLUMNS = COLUMNS.filter((c) => c.kind === 'status');
 
 // Map a status string from the service back to a column id (case-insensitive,
 // space-insensitive). Anything that doesn't match falls into `_unassigned`.
 export function statusToColumnId(rawStatus) {
   if (!rawStatus) return '_unassigned';
   const norm = String(rawStatus).toLowerCase().replace(/[\s_-]+/g, '');
-  const match = COLUMNS.find(
+  const match = STATUS_COLUMNS.find(
     (c) => c.value.toLowerCase().replace(/[\s_-]+/g, '') === norm,
   );
   return match ? match.id : '_unassigned';

@@ -157,6 +157,27 @@ export async function fetchMccRequest({ requestNumber, missionId }) {
   return feats[0].attributes;
 }
 
+// Fetch ALL MCC records for a given mission (incidentid). Returns an
+// array of attribute objects. Empty array if none.
+export async function fetchMccsForMission(missionId) {
+  if (!missionId) return [];
+  await ensureFreshToken();
+  const TOKEN = getToken();
+  const f = MCC_SERVICE.fields;
+  const safeMis = String(missionId).replace(/'/g, "''");
+  const where = `${f.incidentId} = '${safeMis}'`;
+  const params = new URLSearchParams({
+    where,
+    outFields:      '*',
+    returnGeometry: 'false',
+    orderByFields:  `${f.mccNumber} ASC`,
+    f:              'json',
+    token:          TOKEN.accessToken,
+  });
+  const data = await arcgisFetch(`${MCC_SERVICE.url}/query?${params}`);
+  return (data.features || []).map((feat) => feat.attributes);
+}
+
 // Add a new feature to the followups service. `attributes` is an
 // object keyed by AGOL field names. Returns the addResults entry on
 // success; throws on failure.

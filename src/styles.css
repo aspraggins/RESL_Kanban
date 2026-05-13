@@ -712,6 +712,61 @@ button { font-family: inherit; cursor: pointer; }
   flex-wrap: wrap;
 }
 
+/* ─── MCC cards (in the MCC column) ─────────────────────────────── */
+.mcc-card {
+  /* override default <button> styles since the card root is a button */
+  font: inherit;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+}
+.mcc-card:hover { border-color: var(--column-accent); }
+
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Deployments list inside MCC modal */
+.deployments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.deployment-row {
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color .12s, background .12s;
+}
+.deployment-row:hover { border-color: var(--primary); background: #f6f9fd; }
+.deployment-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ─── Followups list (modal tab) ──────────────────────────────────── */
 .followups-count {
   margin: 0 0 10px;

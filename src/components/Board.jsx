@@ -9,10 +9,12 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core';
-import { COLUMNS, FIELDS, CONFIG, statusToColumnId } from '../config.js';
-import { fetchAllResources, fetchLayerMeta, updateStatus, updateAttributes } from '../service.js';
+import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE } from '../config.js';
+import { fetchAllResources, fetchLayerMeta, updateStatus, updateAttributes, fetchMccsForMission } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
+import MccColumn from './MccColumn.jsx';
+import MccDetailModal from './MccDetailModal.jsx';
 import { MainFilters, SortToggle, ColumnToggles } from './FilterBar.jsx';
 import MissionPicker from './MissionPicker.jsx';
 import Brand from './Brand.jsx';
@@ -114,6 +116,39 @@ function n(s) {
   return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+// Apply the active filters to an MCC record. Mission is already
+// applied at fetch time. ESF and Kind have no direct mapping on the
+// MCC schema so they're treated as no-ops here (otherwise filtering
+// by Equipment would always empty the MCC column).
+function mccMatches(m, f) {
+  if (!m) return false;
+  const mf = MCC_SERVICE.fields;
+  if (f.county && n(m[mf.county]) !== n(f.county)) return false;
+  if (f.search) {
+    const raw = f.search.trim();
+    if (raw.startsWith('#')) {
+      const num = raw.slice(1).toLowerCase();
+      if (num === '') return true;
+      const reqNum = String(m[mf.mccNumber] ?? '').toLowerCase();
+      return reqNum === num;
+    }
+    const q = raw.toLowerCase();
+    const haystacks = [
+      mf.mccNumber, mf.subject, mf.description, mf.type, mf.priority,
+      mf.county, mf.region, mf.pocName, mf.pocTitle, mf.subscriberName,
+      mf.originator, mf.assignTo, mf.address,
+    ];
+    let hit = false;
+    for (const k of haystacks) {
+      const v = m[k];
+      if (v == null) continue;
+      if (String(v).toLowerCase().includes(q)) { hit = true; break; }
+    }
+    if (!hit) return false;
+  }
+  return true;
+}
+
 function rowMatches(r, f) {
   if (f.mission && n(r.mission_id_rpt) !== n(f.mission)) return false;
   if (f.esf     && n(r.coordinator)    !== n(f.esf))     return false;
@@ -171,9 +206,16 @@ export default function Board({ onSignOut }) {
     });
   }, []);
 
-  const [hiddenColumns, setHiddenColumns] = useState(() => new Set());
+  // Default-hide any column flagged defaultHidden in the COLUMNS config.
+  const [hiddenColumns, setHiddenColumns] = useState(() => {
+    const s = new Set();
+    for (const c of COLUMNS) if (c.defaultHidden) s.add(c.id);
+    return s;
+  });
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
   const [detailRow,    setDetailRow]     = useState(null);
+  const [mccs,         setMccs]          = useState([]);
+  const [mccDetailRow, setMccDetailRow]  = useState(null);
   const [readOnly]     = useState(() => readUrlReadOnly());
   const [allowedMissions] = useState(() => readUrlMissionScope());
 
@@ -205,6 +247,23 @@ export default function Board({ onSignOut }) {
     return () => clearInterval(id);
   }, [refresh]);
 
+  // Fetch MCC records whenever the selected mission changes; also refresh
+  // on the same cadence as the kanban data when the MCC column is visible.
+  useEffect(() => {
+    if (!filters.mission) { setMccs([]); return; }
+    if (hiddenColumns.has('mcc')) return;
+    let cancelled = false;
+    const load = () => {
+      fetchMccsForMission(filters.mission)
+        .then((data) => { if (!cancelled) setMccs(data); })
+        .catch((err) => console.warn('MCC fetch failed:', err));
+    };
+    load();
+    if (!CONFIG.refreshInterval) return () => { cancelled = true; };
+    const id = setInterval(load, CONFIG.refreshInterval);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [filters.mission, hiddenColumns]);
+
   // Whether the post-OAuth mission picker should take over the body.
   // Picker shows when:
   //   • We have data (resources.length > 0 OR we tried & loaded),
@@ -219,6 +278,11 @@ export default function Board({ onSignOut }) {
     [resources, filters],
   );
 
+  const filteredMccs = useMemo(
+    () => mccs.filter((m) => mccMatches(m, filters)),
+    [mccs, filters],
+  );
+
   // Denominator for "X of Y resources" — only counts resources in the
   // currently-selected mission (not the entire feature service), so the
   // total feels meaningful relative to what's actually shown.
@@ -229,7 +293,7 @@ export default function Board({ onSignOut }) {
 
   const grouped = useMemo(() => {
     const out = { _unassigned: [] };
-    for (const c of COLUMNS) out[c.id] = [];
+    for (const c of STATUS_COLUMNS) out[c.id] = [];
     for (const r of filtered) {
       const col = statusToColumnId(r[FIELDS.status]);
       (out[col] || out._unassigned).push(r);
@@ -274,7 +338,7 @@ export default function Board({ onSignOut }) {
       targetColId = '_unassigned';
       newStatus   = null;
     } else {
-      const targetCol = COLUMNS.find((c) => c.id === over.id);
+      const targetCol = STATUS_COLUMNS.find((c) => c.id === over.id);
       if (!targetCol) return;
       targetColId = targetCol.id;
       newStatus   = targetCol.value;
@@ -405,30 +469,49 @@ export default function Board({ onSignOut }) {
             onDragCancel={() => setActiveId(null)}
           >
             <div className="board">
-              <Column
-                id="_unassigned"
-                label="Unassigned"
-                accent="#94a3b8"
-                resources={grouped._unassigned}
-                pending={pending}
-                droppable
-                readOnly={readOnly}
-                onShowDetail={setDetailRow}
-                hint="Drop here to clear status"
-              />
-              {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => (
-                <Column
-                  key={c.id}
-                  id={c.id}
-                  label={c.label}
-                  accent={c.accent}
-                  resources={grouped[c.id] || []}
-                  pending={pending}
-                  droppable
-                  readOnly={readOnly}
-                  onShowDetail={setDetailRow}
-                />
-              ))}
+              {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => {
+                if (c.kind === 'mcc') {
+                  return (
+                    <MccColumn
+                      key={c.id}
+                      label={c.label}
+                      accent={c.accent}
+                      mccs={filteredMccs}
+                      onShowDetail={setMccDetailRow}
+                    />
+                  );
+                }
+                if (c.kind === 'unassigned') {
+                  return (
+                    <Column
+                      key={c.id}
+                      id={c.id}
+                      label={c.label}
+                      accent={c.accent}
+                      resources={grouped._unassigned}
+                      pending={pending}
+                      droppable
+                      readOnly={readOnly}
+                      onShowDetail={setDetailRow}
+                      hint="Drop here to clear status"
+                    />
+                  );
+                }
+                // status column
+                return (
+                  <Column
+                    key={c.id}
+                    id={c.id}
+                    label={c.label}
+                    accent={c.accent}
+                    resources={grouped[c.id] || []}
+                    pending={pending}
+                    droppable
+                    readOnly={readOnly}
+                    onShowDetail={setDetailRow}
+                  />
+                );
+              })}
             </div>
             <DragOverlay>
               {activeResource ? <Card r={activeResource} dragging /> : null}
@@ -438,6 +521,16 @@ export default function Board({ onSignOut }) {
       )}
         </>
       )}
+
+      <MccDetailModal
+        mcc={mccDetailRow}
+        deployments={resources}
+        onClose={() => setMccDetailRow(null)}
+        onShowDeployment={(deployRow) => {
+          setMccDetailRow(null);
+          setDetailRow(deployRow);
+        }}
+      />
 
       <DetailModal
         r={detailRow}
