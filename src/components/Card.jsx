@@ -126,6 +126,38 @@ function describeResource(r) {
   return { qtyLine: '', nameLine: fallbk || teamN || equipN || '' };
 }
 
+// US state name → 2-letter abbreviation. Plus DC and PR. Anything not
+// in this map is left untouched.
+const US_STATE_ABBR = {
+  Alabama: 'AL', Alaska: 'AK', Arizona: 'AZ', Arkansas: 'AR', California: 'CA',
+  Colorado: 'CO', Connecticut: 'CT', Delaware: 'DE', Florida: 'FL', Georgia: 'GA',
+  Hawaii: 'HI', Idaho: 'ID', Illinois: 'IL', Indiana: 'IN', Iowa: 'IA',
+  Kansas: 'KS', Kentucky: 'KY', Louisiana: 'LA', Maine: 'ME', Maryland: 'MD',
+  Massachusetts: 'MA', Michigan: 'MI', Minnesota: 'MN', Mississippi: 'MS',
+  Missouri: 'MO', Montana: 'MT', Nebraska: 'NE', Nevada: 'NV',
+  'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY',
+  'North Carolina': 'NC', 'North Dakota': 'ND', Ohio: 'OH', Oklahoma: 'OK',
+  Oregon: 'OR', Pennsylvania: 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+  'South Dakota': 'SD', Tennessee: 'TN', Texas: 'TX', Utah: 'UT',
+  Vermont: 'VT', Virginia: 'VA', Washington: 'WA', 'West Virginia': 'WV',
+  Wisconsin: 'WI', Wyoming: 'WY', 'District of Columbia': 'DC', 'Puerto Rico': 'PR',
+};
+
+// Reformat a comma-separated address as "street, city, ST" — drops the
+// ZIP and abbreviates the state name. Returns the input unchanged when
+// the format doesn't look parseable.
+function trimAddress(full) {
+  if (!full) return null;
+  const parts = String(full).split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return full;
+  // Drop trailing ZIP (5 or 5+4)
+  if (/^\d{5}(-\d{4})?$/.test(parts[parts.length - 1])) parts.pop();
+  // Abbreviate state — typically now the last segment
+  const last = parts[parts.length - 1];
+  if (US_STATE_ABBR[last]) parts[parts.length - 1] = US_STATE_ABBR[last];
+  return parts.join(', ');
+}
+
 // Pick a contrasting text color for a given background hex. Uses
 // luminance — bright backgrounds (yellow, light gray) get black text;
 // dark backgrounds get white text. Threshold tuned for the COLUMNS
@@ -157,7 +189,8 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
   const entity    = v(r, FIELDS.entity);
   const esf       = v(r, FIELDS.esf);
   const status    = v(r, FIELDS.status);
-  const address   = v(r, 'address_geo_rpt');
+  const address   = trimAddress(v(r, 'address_geo_rpt'));
+  const kindLabel = v(r, FIELDS.kind);
   const { qtyLine, nameLine } = describeResource(r);
   const statusBg  = status ? statusAccent(status) : null;
   const statusFg  = status ? pickTextColor(statusBg) : null;
@@ -207,6 +240,7 @@ function CardView({ r, pending, style, dragging = false, forwardRef, handleProps
           )}
         </div>
         <div className="card-right">
+          {kindLabel && <div className="card-kind">{kindLabel}</div>}
           {qtyLine && <div className="card-qty">{qtyLine}</div>}
           {nameLine && <div className="card-name">{nameLine}</div>}
           {entity && <div className="card-entity muted small">{entity}</div>}

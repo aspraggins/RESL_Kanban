@@ -473,6 +473,14 @@ button { font-family: inherit; cursor: pointer; }
   overflow-wrap: anywhere;
   line-height: 1.35;
 }
+.card-kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 1px;
+}
 .card-status-pill {
   display: inline-block;
   align-self: flex-start;     /* left-align with the rest of the stack */

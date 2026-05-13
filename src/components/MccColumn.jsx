@@ -92,7 +92,6 @@ function MccCard({ m, lastFollowupTs, onClick }) {
   const priority = v(m, f.priority);
   const status   = v(m, f.status);
   const county   = v(m, f.county);
-  const poc      = v(m, f.pocName);
   const entry    = fmtDateTime(m[f.entryDate] || m[f.mccCreated] || m[f.creationDate]);
   const edited   = fmtDateTime(m[f.editDate]);
   const lastFu   = describeRecent(lastFollowupTs);
@@ -118,7 +117,6 @@ function MccCard({ m, lastFollowupTs, onClick }) {
         <div className="card-right">
           {type && <div className="card-qty">{type}</div>}
           {subject && <div className="card-name">{subject}</div>}
-          {poc && <div className="card-entity muted small">{poc}</div>}
         </div>
       </div>
       {(priority || entry || edited) && (
