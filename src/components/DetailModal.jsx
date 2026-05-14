@@ -975,22 +975,21 @@ function parseTimestamp(v) {
 }
 
 function FollowupRow({ fu, fields: f }) {
-  const when     = fmtDateTime(fu[f.entryDate]);
-  const author   = fu[f.username] || fu[f.updatedBy] || '—';
-  const position = fu[f.positionName];
-  const phone    = fu[f.phone];
-  const email    = fu[f.email];
-  const body     = fu[f.data];
+  const when    = fmtDateTime(fu[f.entryDate]);
+  const author  = fu[f.updatedBy] || '—';
+  const agency  = fu[f.updatingAgency];
+  const email   = fu[f.email];
+  const body    = fu[f.data];
   return (
     <li className="followup-card">
       <header className="followup-head">
         <div className="followup-author">
           <div className="followup-name-line">
             <strong>{author}</strong>
-            {position && (
+            {agency && (
               <>
                 <span className="dot muted">·</span>
-                <span className="muted small">{position}</span>
+                <span className="muted small">{agency}</span>
               </>
             )}
           </div>
@@ -998,13 +997,9 @@ function FollowupRow({ fu, fields: f }) {
         </div>
       </header>
       {body && <div className="followup-body">{String(body)}</div>}
-      {(email || phone) && (
+      {email && (
         <div className="followup-contact muted small">
-          {email && <a href={`mailto:${email}`}>{email}</a>}
-          {email && phone && <span className="dot">·</span>}
-          {phone && (
-            <a href={`tel:${String(phone).replace(/[^+\d]/g, '')}`}>{phone}</a>
-          )}
+          <a href={`mailto:${email}`}>{email}</a>
         </div>
       )}
     </li>
@@ -1060,14 +1055,11 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
       const attrs = {
         [f.requestNumber]:  String(resource.request_number_rpt || ''),
         [f.mission]:        String(resource.mission_id_rpt || ''),
-        [f.entryDate]:      new Date().toISOString(),
+        [f.entryDate]:      Date.now(),                        // Date field = epoch ms
         [f.data]:           text.trim(),
-        [f.username]:       author.username.trim(),
-        [f.positionName]:   author.position.trim(),
-        [f.updatingAgency]: author.agency.trim(),
-        [f.phone]:          author.phone.trim(),
-        [f.email]:          author.email.trim(),
         [f.updatedBy]:      author.username.trim(),
+        [f.updatingAgency]: author.agency.trim(),
+        [f.email]:          author.email.trim(),
       };
       await addFollowup(attrs);
       saveAuthorPrefs(author);
@@ -1100,20 +1092,12 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
           <input type="text" value={author.username} onChange={(e) => update({ username: e.target.value })} />
         </label>
         <label className="composer-field">
-          <span className="muted small">Position</span>
-          <input type="text" value={author.position} onChange={(e) => update({ position: e.target.value })} />
-        </label>
-        <label className="composer-field">
           <span className="muted small">Agency</span>
           <input type="text" value={author.agency} onChange={(e) => update({ agency: e.target.value })} />
         </label>
         <label className="composer-field">
           <span className="muted small">Email</span>
           <input type="email" value={author.email} onChange={(e) => update({ email: e.target.value })} />
-        </label>
-        <label className="composer-field">
-          <span className="muted small">Phone</span>
-          <input type="tel" value={author.phone} onChange={(e) => update({ phone: e.target.value })} />
         </label>
       </div>
 

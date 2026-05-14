@@ -130,17 +130,18 @@ export const FOLLOWUP_SERVICE = {
   url: import.meta.env.VITE_FOLLOWUP_URL ||
        'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/MCCFollowup_v2/FeatureServer/0',
   fields: {
-    objectId:       'objectid',
-    requestNumber:  'mcc_number_text',     // join key → request_number_rpt
-    mission:        'mission',             // join key → mission_id_rpt
-    entryDate:      'entrydate',           // timestamp of the followup
+    objectId:       'ObjectID',
+    globalId:       'GlobalID',
+    requestNumber:  'mcc_no',              // join key → request_number_rpt
+    mission:        'incidentid',          // join key → mission_id_rpt
+    entryDate:      'entrydate',           // Date type — epoch ms
     data:           'Followup_data',       // long-form note
-    updatedBy:      'updated_by',
+    updatedBy:      'updated_by',          // author display name
     updatingAgency: 'updating_agency',
-    username:       'Username',
-    positionName:   'positionname',
-    phone:          'updating_phone',
     email:          'updating_email',
+    subscriberName: 'subscribername',
+    positionId:     'positionid',
+    // v1 fields removed in v2: Username, positionname, updating_phone
   },
 };
 
