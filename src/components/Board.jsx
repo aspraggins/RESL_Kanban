@@ -9,7 +9,7 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core';
-import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE } from '../config.js';
+import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE, FOLLOWUP_SERVICE } from '../config.js';
 import { fetchAllResources, fetchLayerMeta, updateStatus, updateAttributes, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
@@ -270,18 +270,21 @@ export default function Board({ onSignOut }) {
     return () => { cancelled = true; clearInterval(id); };
   }, [filters.mission, hiddenColumns]);
 
-  // Map of "<mcc number>" → latest followup epoch ms timestamp.
+  // Map of "<mcc number>" → latest followup epoch ms timestamp. Reads
+  // through FOLLOWUP_SERVICE.fields so schema changes (e.g. v1 → v2)
+  // only need a config update.
   const latestFollowupByMcc = useMemo(() => {
     const out = new Map();
+    const ff  = FOLLOWUP_SERVICE.fields;
     for (const fu of missionFollowups) {
-      const num = fu.mcc_number_text;
-      if (!num) continue;
+      const num = fu[ff.requestNumber];
+      if (num == null || num === '') continue;
       const key = String(num).trim();
       if (!key) continue;
-      // entrydate is stored as a string in MCC_Followup — try both numeric and ISO parsers.
-      let ts = Number(fu.entrydate);
+      // entrydate is Date in v2 (epoch ms) but was String in v1 — handle both.
+      let ts = Number(fu[ff.entryDate]);
       if (!Number.isFinite(ts) || ts <= 0) {
-        const d = new Date(String(fu.entrydate));
+        const d = new Date(String(fu[ff.entryDate]));
         ts = Number.isNaN(d.getTime()) ? 0 : d.getTime();
       }
       if (ts <= 0) continue;
