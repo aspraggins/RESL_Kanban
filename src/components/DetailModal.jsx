@@ -8,28 +8,31 @@ const FOLLOWUP_AUTHOR_KEY = 'resl_kanban_followup_author_v1';
 function loadAuthorPrefs() {
   const tok = getToken();
   const tokenName = tok?.fullName || tok?.username || '';
+  // Defaults — also guarantees every expected key is a string so the
+  // composer's `.trim()` calls never hit `undefined`.
+  const defaults = {
+    username: tokenName,
+    position: '',
+    agency:   '',
+    email:    tok?.email || '',
+  };
   try {
     const raw = localStorage.getItem(FOLLOWUP_AUTHOR_KEY);
     if (raw) {
       const saved = JSON.parse(raw);
+      const merged = { ...defaults, ...saved };
       // If the previously-saved name looks like an AGOL username (the
       // old default before we started capturing fullName), upgrade it.
-      if (saved.username && tok?.fullName &&
-          saved.username === tok?.username && saved.username !== tok.fullName) {
-        saved.username = tok.fullName;
+      if (merged.username && tok?.fullName &&
+          merged.username === tok?.username && merged.username !== tok.fullName) {
+        merged.username = tok.fullName;
       }
-      // Also pull email from token if the saved record has none.
-      if (!saved.email && tok?.email) saved.email = tok.email;
-      return saved;
+      // Pull email from token if the saved record has none.
+      if (!merged.email && tok?.email) merged.email = tok.email;
+      return merged;
     }
   } catch { /* ignore */ }
-  return {
-    username: tokenName,
-    position: '',
-    agency:   '',
-    phone:    '',
-    email:    tok?.email || '',
-  };
+  return defaults;
 }
 function saveAuthorPrefs(prefs) {
   try { localStorage.setItem(FOLLOWUP_AUTHOR_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
@@ -1043,11 +1046,11 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!text.trim()) {
+    if (!(text || '').trim()) {
       setError('Followup text is required.');
       return;
     }
-    if (!author.username.trim()) {
+    if (!(author.username || '').trim()) {
       setError('Your name is required.');
       return;
     }
@@ -1059,10 +1062,10 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
         [f.mission]:        String(resource.mission_id_rpt || ''),
         [f.entryDate]:      Date.now(),                        // Date field = epoch ms
         [f.data]:           text.trim(),
-        [f.updatedBy]:      author.username.trim(),
-        [f.positionId]:     author.position.trim(),
-        [f.updatingAgency]: author.agency.trim(),
-        [f.email]:          author.email.trim(),
+        [f.updatedBy]:      (author.username || '').trim(),
+        [f.positionId]:     (author.position || '').trim(),
+        [f.updatingAgency]: (author.agency   || '').trim(),
+        [f.email]:          (author.email    || '').trim(),
       };
       await addFollowup(attrs);
       saveAuthorPrefs(author);
