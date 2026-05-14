@@ -511,21 +511,6 @@ export default function Board({ onSignOut }) {
             </button>
           </div>
 
-          {filtered.length === 0 && resources.length > 0 && lockedFilters.size > 0 && (
-            <div className="empty-banner">
-              <strong>No resources match the locked filters.</strong>
-              <div className="muted small">
-                {[...lockedFilters].map((k) => `${k} = "${filters[k]}"`).join(' · ')}
-              </div>
-              <div className="muted small">
-                Values must match the AGOL coded value (case- and
-                whitespace-insensitive). Open DevTools → Console → look
-                for the layer-metadata log to see the exact strings on
-                file.
-              </div>
-            </div>
-          )}
-
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}

@@ -89,6 +89,9 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
   const fuFetchedFor                    = useRef(null);
   const fuTriggeredFor                  = useRef(null);
 
+  // Side-by-side Survey123 panel.
+  const [surveyOpen, setSurveyOpen] = useState(false);
+
   // ESC closes
   useEffect(() => {
     if (!mcc) return;
@@ -97,11 +100,12 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
     return () => window.removeEventListener('keydown', onKey);
   }, [mcc, onClose]);
 
-  // Reset tabs + followups cache when a different MCC is opened.
+  // Reset tabs + followups cache + survey panel when a different MCC is opened.
   useEffect(() => {
     setActiveTab('details');
     setFuState({ status: 'idle', data: [], error: '' });
     setShowComposer(false);
+    setSurveyOpen(false);
     fuFetchedFor.current = null;
     fuTriggeredFor.current = null;
   }, [mcc && mcc[MCC_SERVICE.fields.objectId]]);
@@ -145,7 +149,7 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal"
+        className={`modal${surveyOpen ? ' modal--with-survey' : ''}`}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
@@ -164,14 +168,25 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
                 href={buildResourceSurveyUrl(mcc)}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Open the RESL deployment Survey123 form pre-filled from this MCC"
+                title={surveyOpen
+                  ? 'Close the deployment form panel'
+                  : 'Open the RESL deployment form in a side panel (Ctrl/Cmd-click to open in a new tab)'}
+                onClick={(e) => {
+                  // Let users open in a new tab with Ctrl/Cmd/Shift-click
+                  if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+                  e.preventDefault();
+                  setSurveyOpen((v) => !v);
+                }}
               >
-                + Create deployment
+                {surveyOpen ? '× Close form' : '+ Create deployment'}
               </a>
             )}
             <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
           </div>
         </header>
+
+        <div className="modal-content">
+          <div className="modal-main">
 
         <div className="modal-tabs" role="tablist">
           <button
@@ -280,6 +295,30 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
             ]} />
           </div>
         )}
+
+          </div>
+          {surveyOpen && (
+            <div className="modal-survey-panel">
+              <div className="modal-survey-toolbar">
+                <span className="muted small">New deployment from MCC #{mcc[f.mccNumber]}</span>
+                <a
+                  href={buildResourceSurveyUrl(mcc)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-btn"
+                  title="Open this form in a new browser tab"
+                >
+                  Open in new tab ↗
+                </a>
+              </div>
+              <iframe
+                src={buildResourceSurveyUrl(mcc)}
+                title="RESL deployment form"
+                allow="geolocation"
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
