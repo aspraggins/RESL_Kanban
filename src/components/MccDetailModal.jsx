@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MCC_SERVICE, FIELDS } from '../config.js';
+import { MCC_SERVICE, FIELDS, buildResourceSurveyUrl } from '../config.js';
 import { fetchFollowups } from '../service.js';
 import { FollowupsTabBody } from './DetailModal.jsx';
 
@@ -157,7 +157,20 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
             </div>
             <h2>{title}</h2>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+          <div className="modal-header-actions">
+            {!readOnly && (
+              <a
+                className="btn btn-primary btn-sm"
+                href={buildResourceSurveyUrl(mcc)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open the RESL deployment Survey123 form pre-filled from this MCC"
+              >
+                + Create deployment
+              </a>
+            )}
+            <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+          </div>
         </header>
 
         <div className="modal-tabs" role="tablist">

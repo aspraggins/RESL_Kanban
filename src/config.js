@@ -43,7 +43,57 @@ export const CONFIG = {
   // Storage keys (bumped from the Critical2TN ones so the two apps don't
   // share a token cache).
   tokenKey: 'resl_kanban_token_v1',
+
+  // Survey123 form for creating a new deployment. The MCC detail modal
+  // builds a deep-link to this form with MCC fields pre-filled, mirroring
+  // the existing TEMA dashboard's "Copy Into New Record" action.
+  resourceSurveyId: import.meta.env.VITE_RESL_SURVEY_ID
+    || '7795c465abdd4840b3b6a8341abb4f48',
 };
+
+// Build a Survey123 URL that pre-fills the RESL deployment form from an
+// MCC record. Field names in the URL match the form's question names
+// (request_number_rpt, mission_id_rpt, etc.).
+export function buildResourceSurveyUrl(mcc) {
+  if (!mcc) return null;
+  const f = MCC_SERVICE.fields;
+  const params = new URLSearchParams();
+  params.set('embed', 'fullScreen');
+  params.set('hide',  'footer,navbar,field:emac');
+
+  const setField = (key, value) => {
+    if (value == null) return;
+    const s = String(value).trim();
+    if (!s) return;
+    params.set(`field:${key}`, s);
+  };
+
+  // Try to parse mission year + number from the mission_id text
+  // (typical shape: "2026 Mission #8 Severe Winter…").
+  const incidentId = mcc[f.incidentId];
+  if (incidentId) {
+    const s = String(incidentId);
+    const yearMatch   = s.match(/^(\d{4})/);
+    const numberMatch = s.match(/#\s*(\d+)/);
+    if (yearMatch)   setField('mission_year_rpt',   yearMatch[1]);
+    if (numberMatch) setField('mission_number_rpt', numberMatch[1]);
+  }
+
+  setField('region_rpt',         mcc[f.region]);
+  setField('mcc_county_rpt',     mcc[f.county]);
+  setField('request_number_rpt', mcc[f.mccNumber]);
+  setField('requestor_rpt',      mcc[f.requestorOrig]);
+  setField('mission_id_rpt',     mcc[f.incidentId]);
+  setField('search_address_rpt', mcc[f.address]);
+
+  // entity_rpt = pocName + " " + pocTitle (matches the old dashboard).
+  const pocName  = mcc[f.pocName];
+  const pocTitle = mcc[f.pocTitle];
+  const entity   = [pocName, pocTitle].filter(Boolean).map((x) => String(x).trim()).join(' ');
+  if (entity) setField('entity_rpt', entity);
+
+  return `https://survey123.arcgis.com/share/${CONFIG.resourceSurveyId}?${params.toString()}`;
+}
 
 // ============================================================================
 //  FIELD MAPPING — matched to Mobilization_MCC_Tracking_Resource_Repeat_View
@@ -175,6 +225,7 @@ export const MCC_SERVICE = {
     region:          'region',
     lifeline:        'lifeline',
     feeding:         'feeding',
+    requestorOrig:   'orig_pos',    // Survey123 mapping → requestor_rpt
     creationDate:    'CreationDate',
     creator:         'Creator',
     editDate:        'EditDate',

@@ -651,6 +651,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .modal-eyebrow { font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
 .modal-header h2 { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.modal-header-actions a.btn { text-decoration: none; }
 .modal-close {
   border: 0;
   background: transparent;
