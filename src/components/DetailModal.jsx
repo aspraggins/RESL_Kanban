@@ -975,25 +975,27 @@ function parseTimestamp(v) {
 }
 
 function FollowupRow({ fu, fields: f }) {
-  const when    = fmtDateTime(fu[f.entryDate]);
-  const author  = fu[f.updatedBy] || '—';
-  const agency  = fu[f.updatingAgency];
-  const email   = fu[f.email];
-  const body    = fu[f.data];
+  const when     = fmtDateTime(fu[f.entryDate]);
+  const author   = fu[f.updatedBy] || '—';
+  const position = fu[f.positionId];
+  const agency   = fu[f.updatingAgency];
+  const email    = fu[f.email];
+  const body     = fu[f.data];
   return (
     <li className="followup-card">
       <header className="followup-head">
         <div className="followup-author">
           <div className="followup-name-line">
             <strong>{author}</strong>
-            {agency && (
+            {position && (
               <>
                 <span className="dot muted">·</span>
-                <span className="muted small">{agency}</span>
+                <span className="muted small">{position}</span>
               </>
             )}
           </div>
           {when && <span className="muted small">{when}</span>}
+          {agency && <span className="muted small">{agency}</span>}
         </div>
       </header>
       {body && <div className="followup-body">{String(body)}</div>}
@@ -1058,6 +1060,7 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
         [f.entryDate]:      Date.now(),                        // Date field = epoch ms
         [f.data]:           text.trim(),
         [f.updatedBy]:      author.username.trim(),
+        [f.positionId]:     author.position.trim(),
         [f.updatingAgency]: author.agency.trim(),
         [f.email]:          author.email.trim(),
       };
@@ -1090,6 +1093,10 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
         <label className="composer-field">
           <span className="muted small">Your name</span>
           <input type="text" value={author.username} onChange={(e) => update({ username: e.target.value })} />
+        </label>
+        <label className="composer-field">
+          <span className="muted small">Position</span>
+          <input type="text" value={author.position} onChange={(e) => update({ position: e.target.value })} />
         </label>
         <label className="composer-field">
           <span className="muted small">Agency</span>
