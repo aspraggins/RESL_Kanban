@@ -3,9 +3,9 @@
 :root {
   --bg:        #f4f6fa;
   --surface:   #ffffff;
-  --border:    #e3e7ee;
-  --text:      #1f2937;
-  --muted:     #64748b;
+  --border:    #d4dbe5;          /* darker for projector contrast */
+  --text:      #111827;          /* darker for projector contrast */
+  --muted:     #4b5563;          /* darker — was #64748b */
   --primary:   #0b5fa5;
   --primary-d: #084a82;
   --danger:    #dc2626;
@@ -23,7 +23,7 @@ body {
 }
 button { font-family: inherit; cursor: pointer; }
 .muted { color: var(--muted); }
-.small { font-size: 12px; }
+.small { font-size: 13px; font-weight: 500; }
 
 /* ─── App shell ──────────────────────────────────────────────────────── */
 .app-shell {
