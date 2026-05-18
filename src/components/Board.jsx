@@ -284,9 +284,14 @@ export default function Board({ onSignOut }) {
       if (!key) continue;
       count.set(key, (count.get(key) || 0) + 1);
       // entrydate is Date in v2 (epoch ms) but was String in v1 — handle both.
-      let ts = Number(fu[ff.entryDate]);
+      const rawDate =
+        fu[ff.entryDate] ??
+        fu[ff.entryDateAlt];
+      
+      let ts = Number(rawDate);
+      
       if (!Number.isFinite(ts) || ts <= 0) {
-        const d = new Date(String(fu[ff.entryDate]));
+        const d = new Date(String(rawDate));
         ts = Number.isNaN(d.getTime()) ? 0 : d.getTime();
       }
       if (ts > 0) {
