@@ -184,7 +184,8 @@ export const FOLLOWUP_SERVICE = {
     globalId:       'GlobalID',
     requestNumber:  'mcc_no',              // join key → request_number_rpt
     mission:        'incidentid',          // join key → mission_id_rpt
-    entryDate:      'entrydate',           // Date type — epoch ms
+    entrydate:      'entrydate',           // Date type — epoch ms
+    entry_date:     'entry_date',
     data:           'Followup_data',       // long-form note
     updatedBy:      'updated_by',          // author display name
     updatingAgency: 'updating_agency',
