@@ -199,12 +199,18 @@ export async function addFollowup(attributes) {
   console.info('[Followup] posting to:', FOLLOWUP_SERVICE.url);
   console.info('[Followup] attributes:', attributes);
 
-  const body = new URLSearchParams({
-    f: 'json',
-    token: TOKEN.accessToken,
-    features: JSON.stringify([{ attributes }]),
-  });
-
+const body = new URLSearchParams({
+  f: 'json',
+  token: TOKEN.accessToken,
+  features: JSON.stringify([{
+    attributes,
+    geometry: {
+      x: -86.75858458743868,
+      y: 36.0983205868823,
+      spatialReference: { wkid: 4326 },
+    },
+  }]),
+});
   const data = await arcgisFetch(`${FOLLOWUP_SERVICE.url}/addFeatures`, {
     method: 'POST',
     body,
