@@ -1057,12 +1057,25 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
       setError('Your name is required.');
       return;
     }
+    // Join keys — the followup is meaningless without these, and an
+    // empty mcc_no / incidentid would create an orphan record that
+    // never reappears in the tab list.
+    const mccNo     = String(resource?.request_number_rpt ?? '').trim();
+    const incidentId = String(resource?.mission_id_rpt ?? '').trim();
+    if (!mccNo) {
+      setError('Cannot save — this record has no MCC / request number to tie the followup to.');
+      return;
+    }
+    if (!incidentId) {
+      setError('Cannot save — this record has no mission to tie the followup to.');
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
       const attrs = {
-        [f.requestNumber]:  String(resource.request_number_rpt || ''),
-        [f.mission]:        String(resource.mission_id_rpt || ''),
+        [f.requestNumber]:  mccNo,
+        [f.mission]:        incidentId,
         [f.entryDate]:      Date.now(),                        // Date field = epoch ms
         [f.data]:           text.trim(),
         [f.updatedBy]:      (author.username || '').trim(),
@@ -1070,11 +1083,14 @@ function FollowupComposer({ resource, onCancel, onSubmitted }) {
         [f.updatingAgency]: (author.agency   || '').trim(),
         [f.email]:          (author.email    || '').trim(),
       };
-      await addFollowup(attrs);
+      console.info('[Followup] saving attrs:', attrs);
+      const result = await addFollowup(attrs);
+      console.info('[Followup] save success:', result);
       saveAuthorPrefs(author);
       setText('');
       onSubmitted && onSubmitted();
     } catch (ex) {
+      console.error('[Followup] save failed:', ex);
       setError(ex.message || 'Failed to save followup.');
     } finally {
       setSubmitting(false);
