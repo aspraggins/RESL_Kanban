@@ -910,6 +910,32 @@ button { font-family: inherit; cursor: pointer; }
 .followup-contact a:hover { text-decoration: underline; }
 .followup-contact .dot { color: #c7d0dc; }
 
+/* History tab — audit log timeline. Reuses .followup-card chrome so
+   it sits visually flush with the Followups tab. */
+.history-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.history-transition {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-status {
+  font-weight: 600;
+}
+.history-arrow {
+  font-weight: 600;
+  font-size: 14px;
+}
+.history-fields {
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 /* System event rows mixed into the followups list (created / edited) */
 .followup-card--event {
   background: #f6f9fd;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FIELDS, MISSION_TYPES, TEAM_KINDS, MCC_SERVICE, FOLLOWUP_SERVICE } from '../config.js';
-import { fetchMccRequest, fetchFollowups, addFollowup } from '../service.js';
+import { FIELDS, MISSION_TYPES, TEAM_KINDS, MCC_SERVICE, FOLLOWUP_SERVICE, HISTORY_SERVICE } from '../config.js';
+import { fetchMccRequest, fetchFollowups, addFollowup, fetchHistory } from '../service.js';
 import { getToken } from '../auth.js';
 
 const FOLLOWUP_AUTHOR_KEY = 'resl_kanban_followup_author_v1';
@@ -449,7 +449,7 @@ function EditableDateRow({ label, value, field, objectId, onUpdate }) {
 }
 
 export default function DetailModal({ r, followupCount = 0, onClose, onUpdate }) {
-  const [activeTab, setActiveTab] = useState('resource'); // 'resource' | 'mcc' | 'followups'
+  const [activeTab, setActiveTab] = useState('resource'); // 'resource' | 'mcc' | 'followups' | 'history'
 
   // MCC tab state (single record).
   const [mccState, setMccState] = useState({ status: 'idle', data: null, error: '' });
@@ -460,6 +460,10 @@ export default function DetailModal({ r, followupCount = 0, onClose, onUpdate })
   const fuFetchedFor = useRef(null);
   const fuTriggeredFor = useRef(null);
   const [showComposer, setShowComposer] = useState(false);
+
+  // History tab state (array of audit-log records).
+  const [histState, setHistState] = useState({ status: 'idle', data: [], error: '' });
+  const histFetchedFor = useRef(null);
 
   // ESC closes the modal
   useEffect(() => {
@@ -474,10 +478,12 @@ export default function DetailModal({ r, followupCount = 0, onClose, onUpdate })
     setActiveTab('resource');
     setMccState({ status: 'idle', data: null, error: '' });
     setFuState({ status: 'idle', data: [], error: '' });
+    setHistState({ status: 'idle', data: [], error: '' });
     setShowComposer(false);
     mccFetchedFor.current = null;
     fuFetchedFor.current = null;
     fuTriggeredFor.current = null;
+    histFetchedFor.current = null;
   }, [r && r.objectid]);
 
   // Lazy-load the MCC record the first time the user opens the tab for
@@ -536,6 +542,35 @@ export default function DetailModal({ r, followupCount = 0, onClose, onUpdate })
     reloadFollowups();
   }, [activeTab, r, reloadFollowups]);
 
+  // Lazy-load the audit history the first time the user opens the
+  // History tab for this row. Joined by GlobalID — falls back to
+  // showing an explanatory empty state if the row predates the audit
+  // log or doesn't have a GlobalID.
+  useEffect(() => {
+    if (!r) return;
+    if (activeTab !== 'history') return;
+    const myToken = r.objectid;
+    if (histFetchedFor.current === myToken) return;
+    histFetchedFor.current = myToken;
+
+    const gid = r[FIELDS.globalId];
+    if (!gid) {
+      setHistState({ status: 'empty', data: [], error: '' });
+      return;
+    }
+
+    setHistState({ status: 'loading', data: [], error: '' });
+    fetchHistory({ globalId: gid })
+      .then((data) => {
+        if (histFetchedFor.current !== myToken) return;
+        setHistState({ status: data.length ? 'loaded' : 'empty', data, error: '' });
+      })
+      .catch((err) => {
+        if (histFetchedFor.current !== myToken) return;
+        setHistState({ status: 'error', data: [], error: err.message || String(err) });
+      });
+  }, [activeTab, r]);
+
   if (!r) return null;
 
   const reqNum = r.request_number_rpt;
@@ -592,10 +627,24 @@ export default function DetailModal({ r, followupCount = 0, onClose, onUpdate })
               return n > 0 ? <span className="tab-count">{n}</span> : null;
             })()}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'history'}
+            className={`modal-tab${activeTab === 'history' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('history')}
+            title="Edit history for this resource"
+          >
+            History {histState.data.length > 0
+              ? <span className="tab-count">{histState.data.length}</span>
+              : null}
+          </button>
         </div>
 
         {activeTab === 'mcc' ? (
           <MccTabBody state={mccState} />
+        ) : activeTab === 'history' ? (
+          <HistoryTabBody state={histState} />
         ) : activeTab === 'followups' ? (
           <FollowupsTabBody
             state={fuState}
@@ -1014,6 +1063,120 @@ function FollowupRow({ fu, fields: f }) {
           <a href={`mailto:${email}`}>{email}</a>
         </div>
       )}
+    </li>
+  );
+}
+
+// ─── History tab body ──────────────────────────────────────────────
+// Renders the audit log for one resource, newest first. Each row shows
+// the change type (status transition or list of changed fields), the
+// author's full name, and a relative timestamp ("2h ago"). The full
+// snapshot is in `state.data[i]` for any future drill-in view; for now
+// we surface just what changed so the timeline reads fast.
+function HistoryTabBody({ state }) {
+  if (state.status === 'idle' || state.status === 'loading') {
+    return (
+      <div className="modal-body">
+        <div className="modal-loading">
+          <div className="spinner" />
+          <p className="muted small">Loading history…</p>
+        </div>
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="modal-body">
+        <div className="empty-banner">
+          <strong>Couldn't load history.</strong>
+          <div className="muted small">{state.error}</div>
+        </div>
+      </div>
+    );
+  }
+  if (state.status === 'empty' || state.data.length === 0) {
+    return (
+      <div className="modal-body">
+        <div className="picker-empty">
+          <strong>No edits yet.</strong>
+          <p className="muted small">
+            Nothing has been changed on this record through the Kanban app
+            yet. Drag the card or save a field edit and the change will
+            show up here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-body">
+      <div className="followups-header">
+        <div className="muted small followups-count">
+          {state.data.length} edit{state.data.length === 1 ? '' : 's'}
+        </div>
+      </div>
+      <ol className="followups-list">
+        {state.data.map((h) => (
+          <HistoryRow
+            key={h.objectid ?? h.OBJECTID ?? `${h[HISTORY_SERVICE.audit.changeTs]}-${Math.random()}`}
+            row={h}
+          />
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function HistoryRow({ row }) {
+  const a = HISTORY_SERVICE.audit;
+  const when    = fmtDateTime(row[a.changeTs]);
+  const author  = row[a.changedBy] || '—';
+  const action  = row[a.action] || 'edit';
+  const prev    = row[a.prevStatus];
+  const next    = row[a.newStatus];
+  const changed = (row[a.changedFields] || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Headline: status transition for status_change rows, a comma-list of
+  // field names for edits. We deliberately don't render before/after
+  // values for arbitrary fields — the snapshot is on the row if a
+  // future drill-down wants it, but the timeline stays scannable.
+  let headline;
+  if (action === 'status_change') {
+    headline = (
+      <span className="history-transition">
+        <span className="history-status">{prev || '—'}</span>
+        <span className="history-arrow muted">→</span>
+        <span className="history-status">{next || '—'}</span>
+      </span>
+    );
+  } else {
+    headline = (
+      <span>
+        Updated{changed.length > 0 ? ': ' : ''}
+        <span className="history-fields">{changed.join(', ') || '(no fields)'}</span>
+      </span>
+    );
+  }
+
+  return (
+    <li className="followup-card">
+      <header className="followup-head">
+        <div className="followup-author">
+          <div className="followup-name-line">
+            <strong>{author}</strong>
+            <span className="dot muted">·</span>
+            <span className="muted small">
+              {action === 'status_change' ? 'status change' : 'edit'}
+            </span>
+          </div>
+          {when && <span className="muted small">{when}</span>}
+        </div>
+      </header>
+      <div className="history-body">{headline}</div>
     </li>
   );
 }

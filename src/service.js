@@ -228,6 +228,55 @@ export async function updateStatus(objectId, newStatus, before) {
   return updateAttributes(objectId, { [FIELDS.status]: newStatus }, before);
 }
 
+// ─── History (audit log) reader ───────────────────────────────────────
+// Fetch every history row tied to one resource, newest first. Joined
+// by parent_globalid (the stable cross-service key) — pass the row's
+// GlobalID, NOT its ObjectID, since ObjectIDs can drift across schema
+// rebuilds and don't match between the source layer and a View.
+//
+// AGOL is finicky about GUID literals in SQL: the curly braces are
+// optional and some services strip them, others require them. We try
+// the bare form first since that's what hosted feature services return
+// in query results, and fall back to a braced form on empty results.
+// Either way, single quotes are required around the GUID.
+export async function fetchHistory({ globalId }) {
+  if (!globalId) return [];
+  if (!HISTORY_SERVICE.url) return [];
+
+  await ensureFreshToken();
+  const TOKEN = getToken();
+  const a = HISTORY_SERVICE.audit;
+
+  // Strip braces if present; we'll add them back on the fallback try.
+  const bare = String(globalId).replace(/[{}]/g, '').toUpperCase();
+
+  const runQuery = async (whereLiteral) => {
+    const params = new URLSearchParams({
+      where:          `${a.parentGlobalId} = '${whereLiteral}'`,
+      outFields:      '*',
+      returnGeometry: 'false',
+      orderByFields:  `${a.changeTs} DESC`,
+      f:              'json',
+      token:          TOKEN.accessToken,
+    });
+    const data = await arcgisFetch(`${HISTORY_SERVICE.url}/query?${params}`);
+    return (data.features || []).map((feat) => feat.attributes);
+  };
+
+  try {
+    let rows = await runQuery(bare);
+    if (rows.length === 0) {
+      // Some AGOL services store the parent_globalid with braces — try
+      // the braced form once before declaring the history empty.
+      rows = await runQuery(`{${bare}}`);
+    }
+    return rows;
+  } catch (err) {
+    console.warn('[RESL-Kanban] fetchHistory failed:', err);
+    throw err;
+  }
+}
+
 // ─── MCC Status Mapper (secondary service) ───────────────────────────
 // Look up the original county request that a resource deployment
 // fulfills. Match is MCC_number = request_number_rpt AND
