@@ -936,7 +936,9 @@ export function FollowupsTabBody({
     ...state.data.map((fu) => ({
       _kind: 'followup',
       _key:  `fu-${fu[f.objectId]}`,
-      _ts:   parseTimestamp(fu[f.entryDate]),
+    _ts: parseTimestamp(
+      fu[f.entryDate] ?? fu[f.entryDateAlt]
+    ),
       data:  fu,
     })),
     ...extras.map((e, i) => ({
@@ -981,7 +983,9 @@ function parseTimestamp(v) {
 }
 
 function FollowupRow({ fu, fields: f }) {
-  const when     = fmtDateTime(fu[f.entryDate]);
+  const when = fmtDateTime(
+  fu[f.entryDate] ?? fu[f.entryDateAlt]
+);
   const author   = fu[f.updatedBy] || '—';
   const position = fu[f.positionId];
   const agency   = fu[f.updatingAgency];
