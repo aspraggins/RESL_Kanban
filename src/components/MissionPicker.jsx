@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { MCC_SERVICE } from '../config.js';
 
 // Aggregate MCCs + resources into one mission entry per distinct
@@ -61,6 +61,11 @@ function fmtRelative(ms) {
 }
 
 export default function MissionPicker({ resources, mccs = [], loading, allowedMissions, onPick }) {
+  const [query, setQuery] = useState('');
+
+  // Build the full mission list once per data-set change; the search
+  // filter runs as a cheap second pass on top so we don't have to
+  // re-aggregate on every keystroke.
   const missions = useMemo(() => {
     let m = summarizeMissions(mccs, resources);
     if (allowedMissions && allowedMissions.length) {
@@ -72,14 +77,52 @@ export default function MissionPicker({ resources, mccs = [], loading, allowedMi
     return m;
   }, [resources, mccs, allowedMissions]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return missions;
+    return missions.filter((m) => m.name.toLowerCase().includes(q));
+  }, [missions, query]);
+
+  const hasMissions = missions.length > 0;
+  const onSearchKey = (e) => {
+    if (e.key === 'Escape' && query) {
+      e.preventDefault();
+      setQuery('');
+    }
+    if (e.key === 'Enter' && filtered.length > 0) {
+      e.preventDefault();
+      onPick(filtered[0].name);
+    }
+  };
+
   return (
     <div className="picker-wrap">
       <div className="picker-card">
-        <h1>Choose a mission</h1>
-        <p className="muted">
-          Pick a mission to view its MCCs and resource deployments. You can
-          switch missions from the dropdown at the top of the board after.
-        </p>
+        <header className="picker-head">
+          <h1>Choose a mission</h1>
+          <p className="muted">
+            Pick a mission to view its MCCs and resource deployments. You can
+            switch missions from the dropdown at the top of the board after.
+          </p>
+          {hasMissions && (
+            <div className="picker-search-row">
+              <input
+                type="search"
+                className="picker-search"
+                placeholder={`Search ${missions.length} mission${missions.length === 1 ? '' : 's'}…`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onSearchKey}
+                autoFocus
+              />
+              {query && (
+                <span className="muted small picker-search-count">
+                  {filtered.length} of {missions.length}
+                </span>
+              )}
+            </div>
+          )}
+        </header>
 
         {loading && missions.length === 0 ? (
           <div className="boot-screen">
@@ -94,42 +137,51 @@ export default function MissionPicker({ resources, mccs = [], loading, allowedMi
               src/config.js or your account permissions.
             </p>
           </div>
-        ) : (
-          <>
-            <div className="mission-list" role="list">
-              {missions.map((m) => (
-                <button
-                  key={m.name}
-                  type="button"
-                  className="mission-row"
-                  role="listitem"
-                  onClick={() => onPick(m.name)}
-                >
-                  <div className="mission-name">{m.name}</div>
-                  <div className="mission-meta muted small">
-                    <span>
-                      <strong>{m.mccCount}</strong> MCC{m.mccCount === 1 ? '' : 's'}
-                    </span>
-                    <span className="dot">·</span>
-                    <span>
-                      <strong>{m.deployCount}</strong> deployment{m.deployCount === 1 ? '' : 's'}
-                    </span>
-                    {m.latestEdit > 0 && (
-                      <>
-                        <span className="dot">·</span>
-                        <span>{fmtRelative(m.latestEdit)}</span>
-                      </>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <p className="picker-note muted small">
-              Missions appear here as soon as their first MCC is filed.
-              Pick a mission to start creating deployments for the MCCs
-              that don't have one yet.
+        ) : filtered.length === 0 ? (
+          <div className="picker-empty">
+            <strong>No matches.</strong>
+            <p className="muted small">
+              No mission name contains "{query}". Press Escape to clear the
+              search.
             </p>
-          </>
+          </div>
+        ) : (
+          <div className="mission-list" role="list">
+            {filtered.map((m) => (
+              <button
+                key={m.name}
+                type="button"
+                className="mission-row"
+                role="listitem"
+                onClick={() => onPick(m.name)}
+              >
+                <div className="mission-name">{m.name}</div>
+                <div className="mission-meta muted small">
+                  <span>
+                    <strong>{m.mccCount}</strong> MCC{m.mccCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="dot">·</span>
+                  <span>
+                    <strong>{m.deployCount}</strong> deployment{m.deployCount === 1 ? '' : 's'}
+                  </span>
+                  {m.latestEdit > 0 && (
+                    <>
+                      <span className="dot">·</span>
+                      <span>{fmtRelative(m.latestEdit)}</span>
+                    </>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {hasMissions && (
+          <p className="picker-note muted small">
+            Missions appear here as soon as their first MCC is filed. Pick a
+            mission to start creating deployments for the MCCs that don't have
+            one yet.
+          </p>
         )}
       </div>
     </div>

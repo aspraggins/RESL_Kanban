@@ -156,17 +156,60 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 28px 32px;
+  padding: 24px 28px;
   width: 100%;
   max-width: 640px;
   box-shadow: var(--shadow);
+  /* Constrain total card height so a long list scrolls *inside* the
+     card while header + search + footer stay anchored. The wrap's own
+     scroll is the fallback for very short viewports. */
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-.picker-card h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
-.picker-card > p { margin: 0 0 18px; }
+.picker-head {
+  flex: 0 0 auto;
+  margin-bottom: 14px;
+}
+.picker-head h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; }
+.picker-head > p { margin: 0 0 12px; }
+.picker-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.picker-search {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.picker-search:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(11, 95, 165, 0.12);
+}
+.picker-search-count {
+  white-space: nowrap;
+}
 .mission-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* The scroller. Flex-1 inside the constrained-height card. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Small inset so the focus ring on buttons isn't clipped. */
+  padding: 2px;
+  margin: -2px;
 }
 .mission-row {
   display: flex;
@@ -209,7 +252,8 @@ button { font-family: inherit; cursor: pointer; }
 .picker-empty strong { display: block; margin-bottom: 6px; }
 .picker-empty p { margin: 0; }
 .picker-note {
-  margin: 16px 0 0;
+  flex: 0 0 auto;
+  margin: 14px 0 0;
   padding: 10px 12px;
   background: #f6f9fd;
   border: 1px solid #e3e7ee;
