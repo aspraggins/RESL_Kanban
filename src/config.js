@@ -257,6 +257,28 @@ export function labelFor(fieldName) {
 //  has mcc_number_text (matches request_number_rpt) and mission (matches
 //  mission_id_rpt). Surfaced as the Followups tab in the detail modal.
 // ============================================================================
+// ============================================================================
+//  INVENTORY service — view-only TEMA inventory layer. Used to populate
+//  the leftmost "Inventory" column on the board. Items are draggable;
+//  dropping one on an MCC card creates a new Equipment deployment with
+//  the inventory's tag/item/make/model fields copied across.
+//
+//  The layer is read-only (a hosted view), so this app never writes to
+//  it. We only read for display + filter.
+// ============================================================================
+export const INVENTORY_SERVICE = {
+  url: import.meta.env.VITE_INVENTORY_URL ||
+       'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/TEMA_Assigned_Inventory_Tracking_(view_only)/FeatureServer/0',
+  fields: {
+    objectId:    'objectid',
+    tagNumber:   'tag_number',
+    item:        'item',
+    make:        'make',
+    model:       'model',
+    description: 'description',
+  },
+};
+
 export const FOLLOWUP_SERVICE = {
   url: import.meta.env.VITE_FOLLOWUP_URL ||
        'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/MCCFollowup_v2/FeatureServer/0',
@@ -416,6 +438,9 @@ export const TEAM_KINDS = [
 //   • 'unassigned' — deployments whose status doesn't match any status
 //                    column. Accepts drops to clear `item_status`.
 export const COLUMNS = [
+  // Leftmost column — TEMA assigned inventory. Cards are draggable;
+  // dropping one on an MCC card creates a new Equipment deployment.
+  { id: 'inventory',   label: 'Inventory',   kind: 'inventory',  accent: '#7c3aed', defaultHidden: false },
   { id: 'mcc',         label: 'MCC',         kind: 'mcc',        accent: '#0b5fa5', defaultHidden: false },
   // Default-hidden statuses (still toggleable via the Columns control):
   // On Hold, Staged, and Canceled are typically less relevant to the

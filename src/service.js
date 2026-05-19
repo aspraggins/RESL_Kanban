@@ -3,7 +3,7 @@
 //  on every request and silently refreshes once on a 498/499 response.
 // ============================================================================
 
-import { CONFIG, FIELDS, MCC_SERVICE, FOLLOWUP_SERVICE, HISTORY_SERVICE } from './config.js';
+import { CONFIG, FIELDS, MCC_SERVICE, FOLLOWUP_SERVICE, HISTORY_SERVICE, INVENTORY_SERVICE } from './config.js';
 import { getToken, ensureFreshToken, clearStoredToken } from './auth.js';
 import { lookupTnCountyByName } from './regions.js';
 
@@ -481,6 +481,137 @@ export async function fetchAllMccs() {
     if (feats.length === 0) break;
   }
   return allFeatures.map((feat) => feat.attributes);
+}
+
+// ─── Inventory (TEMA assigned inventory view) ─────────────────────────
+// View-only layer of equipment available for deployment. Loaded once at
+// startup; rows feed the leftmost "Inventory" column on the board.
+// Drag-drop onto an MCC card creates a new Equipment deployment via
+// createDeploymentFromInventory below.
+export async function fetchAllInventory() {
+  await ensureFreshToken();
+  const TOKEN = getToken();
+
+  const allFeatures = [];
+  const pageSize = 2000;
+  let offset = 0;
+  let more   = true;
+  let safety = 50;
+  while (more && safety-- > 0) {
+    const params = new URLSearchParams({
+      where:             '1=1',
+      outFields:         '*',
+      returnGeometry:    'false',
+      f:                 'json',
+      resultOffset:      String(offset),
+      resultRecordCount: String(pageSize),
+      token:             TOKEN.accessToken,
+    });
+    const data = await arcgisFetch(`${INVENTORY_SERVICE.url}/query?${params}`);
+    const feats = data.features || [];
+    allFeatures.push(...feats);
+    more = (data.exceededTransferLimit === true) || (feats.length === pageSize);
+    offset += feats.length;
+    if (feats.length === 0) break;
+  }
+  return allFeatures.map((feat) => feat.attributes);
+}
+
+// Create a new Equipment deployment from an inventory item dropped on
+// an MCC card. Fields are populated as follows:
+//   • Identity / mission — copied from the MCC: request_number_rpt,
+//     mission_id_rpt, mission_year_rpt + mission_number_rpt (parsed),
+//     county_rpt, region_rpt.
+//   • Resource — from inventory: tag_number, item, make, serial
+//     (=model), resl_note (=description).
+//   • Defaults — resource_kind = 'Equipment', equipment_count = 1,
+//     item_status = 'Staged'.
+// History log fires the normal way (via the addFeatures path is NOT
+// the same as applyEdits, so we log manually here with action='create').
+// Returns the addResults entry, including the new objectId.
+export async function createDeploymentFromInventory(mcc, inv, { status = 'Staged' } = {}) {
+  if (!mcc) throw new Error('Missing MCC record');
+  if (!inv) throw new Error('Missing inventory item');
+
+  await ensureFreshToken();
+  const TOKEN = getToken();
+
+  const mf = MCC_SERVICE.fields;
+  const inf = INVENTORY_SERVICE.fields;
+
+  // Pull MCC identity / location.
+  const incidentId = mcc[mf.incidentId] || null;
+  const mccNumber  = mcc[mf.mccNumber]  ?? null;
+  const county     = mcc[mf.county]     || null;
+  const region     = mcc[mf.region]     || null;
+
+  // Parse mission_year / mission_number from incidentId text
+  // (e.g. "2026 Mission #8 ...") — same heuristic buildResourceSurveyUrl
+  // uses for the Survey123 deep-link.
+  let missionYear = null, missionNumber = null;
+  if (incidentId) {
+    const s = String(incidentId);
+    const yearMatch   = s.match(/^(\d{4})/);
+    const numberMatch = s.match(/#\s*(\d+)/);
+    if (yearMatch)   missionYear   = yearMatch[1];
+    if (numberMatch) missionNumber = numberMatch[1];
+  }
+
+  const attributes = {
+    // Mission / identity
+    [FIELDS.requestNumber]: mccNumber,
+    [FIELDS.missionId]:     incidentId,
+    [FIELDS.missionYear]:   missionYear,
+    [FIELDS.missionNumber]: missionNumber,
+    // Location (county/region come from the MCC; address is filled in
+    // later via the detail modal's editable address row).
+    [FIELDS.county]:        county,
+    [FIELDS.region]:        region,
+    // Resource description — Equipment kind, 1 unit.
+    [FIELDS.kind]:          'Equipment',
+    [FIELDS.equipmentCount]:1,
+    // Inventory-derived fields (per user's field-map answer).
+    [FIELDS.tagNumber]:     inv[inf.tagNumber] ?? null,
+    [FIELDS.item]:          inv[inf.item]      ?? null,
+    [FIELDS.make]:          inv[inf.make]      ?? null,
+    [FIELDS.serial]:        inv[inf.model]     ?? null,
+    [FIELDS.reslNote]:      inv[inf.description] ?? null,
+    // Initial status.
+    [FIELDS.status]:        status,
+  };
+
+  const body = new URLSearchParams({
+    f:        'json',
+    token:    TOKEN.accessToken,
+    features: JSON.stringify([{ attributes }]),
+  });
+  const data = await arcgisFetch(`${CONFIG.serviceUrl}/addFeatures`, {
+    method:  'POST',
+    body,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  const result = (data.addResults && data.addResults[0]) || null;
+  if (!result || !result.success) {
+    const msg = result && result.error
+      ? `${result.error.code}: ${result.error.description}`
+      : 'Create deployment failed';
+    throw new Error(msg);
+  }
+
+  // Log a 'create' history row. We don't have a `before` snapshot since
+  // this is a new record — the history row's snapshot captures the
+  // initial state. The parent_globalid won't be available yet (AGOL
+  // assigns one on insert and we'd need an extra query to read it back),
+  // so we use the source_oid as the join key for now. A subsequent
+  // edit will fill in the GlobalID via the normal logHistory path.
+  logHistory({
+    before:  null,
+    after:   { ...attributes, [FIELDS.objectId]: result.objectId },
+    action:  'create',
+    changed: Object.keys(attributes),
+  });
+
+  return result;
 }
 
 // Fetch MCC records for a given mission (incidentid). Drafts without an

@@ -9,12 +9,13 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core';
-import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE, FOLLOWUP_SERVICE } from '../config.js';
-import { fetchAllResources, fetchAllMccs, fetchLayerMeta, updateAttributes, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
+import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE, FOLLOWUP_SERVICE, INVENTORY_SERVICE } from '../config.js';
+import { fetchAllResources, fetchAllMccs, fetchAllInventory, fetchLayerMeta, updateAttributes, createDeploymentFromInventory, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
 import MccColumn from './MccColumn.jsx';
 import MccDetailModal from './MccDetailModal.jsx';
+import InventoryColumn from './InventoryColumn.jsx';
 import { MainFilters, SortToggle, ColumnToggles } from './FilterBar.jsx';
 import MissionPicker from './MissionPicker.jsx';
 import Brand from './Brand.jsx';
@@ -238,6 +239,12 @@ export default function Board({ onSignOut }) {
   // mission shows up as soon as the first MCC is filed, even if no
   // deployments exist yet. Loaded once at startup alongside resources.
   const [allMccs,      setAllMccs]       = useState([]);
+  // Inventory items (TEMA assigned inventory layer) — populates the
+  // leftmost column. `pendingInventoryTags` tracks tags whose
+  // create-deployment is in flight so the inventory card can render
+  // as "Deploying…" until the resource list refreshes.
+  const [inventoryItems,      setInventoryItems]      = useState([]);
+  const [pendingInventoryTags, setPendingInventoryTags] = useState(() => new Set());
   const [mccDetailRow, setMccDetailRow]  = useState(null);
   const [missionFollowups, setMissionFollowups] = useState([]);
   const [readOnly]     = useState(() => readUrlReadOnly());
@@ -257,15 +264,20 @@ export default function Board({ onSignOut }) {
       // resources) on the first paint. MCC failure is non-fatal — we
       // log and proceed with an empty MCC list so the picker still
       // works off the resources fallback below.
-      const [resData, mccData] = await Promise.all([
+      const [resData, mccData, invData] = await Promise.all([
         fetchAllResources(),
         fetchAllMccs().catch((err) => {
           console.warn('[RESL-Kanban] fetchAllMccs failed:', err);
           return [];
         }),
+        fetchAllInventory().catch((err) => {
+          console.warn('[RESL-Kanban] fetchAllInventory failed:', err);
+          return [];
+        }),
       ]);
       setResources(resData);
       setAllMccs(mccData);
+      setInventoryItems(invData);
       setLastRefresh(new Date());
     } catch (err) {
       console.error(err);
@@ -411,6 +423,31 @@ export default function Board({ onSignOut }) {
     return out;
   }, [filtered, sortBy]);
 
+  // Tag numbers currently in use on a non-Demobilized deployment.
+  // Used to hide inventory items that are already out. Demobilized
+  // items have come back, so they're available again.
+  const deployedTagNumbers = useMemo(() => {
+    const set = new Set();
+    for (const r of resources) {
+      const tag = String(r[FIELDS.tagNumber] ?? '').trim();
+      if (!tag) continue;
+      const status = String(r[FIELDS.status] ?? '').trim();
+      if (status === 'Demobilized') continue;
+      set.add(tag);
+    }
+    return set;
+  }, [resources]);
+
+  const availableInventory = useMemo(() => {
+    if (!deployedTagNumbers.size) return inventoryItems;
+    const tagField = INVENTORY_SERVICE.fields.tagNumber;
+    return inventoryItems.filter((it) => {
+      const tag = String(it[tagField] ?? '').trim();
+      // Items without a tag number always show — we can't dedupe them.
+      return !tag || !deployedTagNumbers.has(tag);
+    });
+  }, [inventoryItems, deployedTagNumbers]);
+
   const activeResource = activeId
     ? resources.find((r) => String(r[FIELDS.objectId]) === activeId)
     : null;
@@ -430,6 +467,48 @@ export default function Board({ onSignOut }) {
     if (readOnly) return;                  // never write in read-only mode
     const { active, over } = event;
     if (!over) return;
+
+    // ── Inventory → MCC: create a new Equipment deployment ─────────
+    const activeData = active.data && active.data.current;
+    if (activeData && activeData.type === 'inventory') {
+      const overId = String(over.id || '');
+      if (!overId.startsWith('mcc:')) return;             // wrong drop target
+      const overData = over.data && over.data.current;
+      const mcc = (overData && overData.mcc) || null;
+      const inv = activeData.item;
+      if (!mcc || !inv) return;
+
+      const invF = INVENTORY_SERVICE.fields;
+      const tag = String(inv[invF.tagNumber] ?? '').trim();
+      // Mark as pending so the inventory card greys out / shows
+      // "Deploying…" until the resource refresh sweeps the tag
+      // into the deployed set and the item drops off the list.
+      if (tag) {
+        setPendingInventoryTags((p) => new Set(p).add(tag));
+      }
+
+      try {
+        await createDeploymentFromInventory(mcc, inv, { status: 'Staged' });
+        // Refresh so the new deployment appears in the Staged column
+        // and the inventory item drops out of `availableInventory`.
+        await refresh();
+      } catch (err) {
+        console.error('[RESL-Kanban] createDeploymentFromInventory failed:', err);
+        const itemLabel = (inv[invF.item] || tag || 'inventory item');
+        setError(`Could not deploy ${itemLabel}: ${err.message}`);
+      } finally {
+        if (tag) {
+          setPendingInventoryTags((p) => {
+            const next = new Set(p);
+            next.delete(tag);
+            return next;
+          });
+        }
+      }
+      return;
+    }
+
+    // ── Status drag (existing flow) ─────────────────────────────────
     const oid = Number(active.id);
     const current = resources.find((r) => r[FIELDS.objectId] === oid);
     if (!current) return;
@@ -587,6 +666,19 @@ export default function Board({ onSignOut }) {
           >
             <div className="board">
               {COLUMNS.filter((c) => !hiddenColumns.has(c.id)).map((c) => {
+                if (c.kind === 'inventory') {
+                  return (
+                    <InventoryColumn
+                      key={c.id}
+                      label={c.label}
+                      accent={c.accent}
+                      items={availableInventory}
+                      loading={loading}
+                      readOnly={readOnly}
+                      pendingTagNumbers={pendingInventoryTags}
+                    />
+                  );
+                }
                 if (c.kind === 'mcc') {
                   return (
                     <MccColumn

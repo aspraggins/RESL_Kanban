@@ -376,6 +376,55 @@ button { font-family: inherit; cursor: pointer; }
   background: #fafbfc;
   opacity: .85;
 }
+/* The Inventory column is static but its CARDS are draggable, so we
+   want the column itself to look interactive (full opacity, no fade)
+   while keeping the static-column background. */
+.column.is-static.is-inventory {
+  opacity: 1;
+}
+.column-toolbar {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.inventory-search {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.inventory-search:focus {
+  border-color: var(--column-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--column-accent) 18%, transparent);
+}
+.inventory-card {
+  cursor: grab;
+}
+.inventory-card:active { cursor: grabbing; }
+.inventory-card.is-pending {
+  opacity: .55;
+  pointer-events: none;
+}
+.inventory-card .card-pending {
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+}
+/* MCC card highlight while an inventory drag hovers over it — a
+   subtle ring + lift makes the drop target unmistakable. */
+.mcc-card.is-drop-target {
+  outline: 2px solid var(--column-accent, #7c3aed);
+  outline-offset: 2px;
+  background: color-mix(in srgb, #7c3aed 6%, white);
+  transform: translateY(-1px);
+}
 .column-header {
   display: flex;
   align-items: center;
