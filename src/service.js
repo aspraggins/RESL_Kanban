@@ -265,7 +265,12 @@ export async function updateStatus(objectId, newStatus, before) {
 // Suggestions and the final geocode are biased toward Tennessee via a
 // `location` hint roughly at the state's geographic center. The bias
 // re-ranks; it doesn't exclude out-of-state addresses.
-const ESRI_GEOCODER = 'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer';
+// Use the standard `geocode.arcgis.com` host (not `geocode-api`) — the
+// `-api` host is for the new API-key-only product and is pickier about
+// CORS for the suggest endpoint. The standard host accepts both
+// anonymous suggest requests AND OAuth-token forStorage geocode
+// requests, which is what we want.
+const ESRI_GEOCODER = 'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer';
 // Rough centroid of TN — picked from the regions.csv county centroids
 // and rounded. Used as the `location` bias hint on suggest + geocode.
 const TN_BIAS_LOCATION = '-86.6,35.86';
@@ -280,14 +285,17 @@ export async function suggestAddresses(text, { signal } = {}) {
     countryCode:    'USA',
     maxSuggestions: '6',
     location:       TN_BIAS_LOCATION,
-    // Address + place categories. Postal lets ZIP-only searches work.
-    category:       'Address,Postal,POI',
+    // No `category` filter — leaving it off lets the geocoder return
+    // its full set of guesses (street addresses, intersections, places,
+    // postal codes). Filtering tends to swallow partial matches.
   });
 
+  console.info('[RESL-Kanban] suggest:', q);
   const res = await fetch(`${ESRI_GEOCODER}/suggest?${params}`, { signal });
   if (!res.ok) throw new Error(`Suggest HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'Suggest error');
+  console.info('[RESL-Kanban] suggest →', (data.suggestions || []).length, 'results');
   return (data.suggestions || []).map((s) => ({
     text:         s.text,
     magicKey:     s.magicKey,
