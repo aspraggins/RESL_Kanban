@@ -1,27 +1,55 @@
 import { useMemo } from 'react';
+import { MCC_SERVICE } from '../config.js';
 
-// Compute the most-recent EditDate per mission. Used to sort the picker
-// so the latest mission lands at the top.
-function summarizeMissions(resources) {
-  const stats = new Map(); // mission_id_rpt → { count, latestEdit }
-  for (const r of resources) {
-    const m = r.mission_id_rpt;
-    if (!m) continue;
-    const name = String(m).trim();
+// Aggregate MCCs + resources into one mission entry per distinct
+// incidentid. The MCC layer is the source of truth — every mission
+// with at least one official MCC shows up here, even if it has no
+// resource deployments yet. The resources list contributes a deployment
+// count (a useful tell that a mission is "open but unattended" — high
+// MCC count, low deployment count).
+function summarizeMissions(mccs, resources) {
+  const mf = MCC_SERVICE.fields;
+  const stats = new Map(); // name → { name, mccCount, deployCount, latestEdit }
+
+  const ensure = (name) => {
+    let entry = stats.get(name);
+    if (!entry) {
+      entry = { name, mccCount: 0, deployCount: 0, latestEdit: 0 };
+      stats.set(name, entry);
+    }
+    return entry;
+  };
+
+  for (const m of mccs) {
+    const raw = m[mf.incidentId];
+    if (!raw) continue;
+    const name = String(raw).trim();
     if (!name) continue;
-    const edit = Number(r.EditDate);
-    const existing = stats.get(name);
-    if (existing) {
-      existing.count += 1;
-      if (Number.isFinite(edit) && edit > existing.latestEdit) existing.latestEdit = edit;
-    } else {
-      stats.set(name, {
-        name,
-        count: 1,
-        latestEdit: Number.isFinite(edit) ? edit : 0,
-      });
+    const entry = ensure(name);
+    entry.mccCount += 1;
+    // Use EditDate (or CreationDate as fallback) to track recency.
+    const edit = Number(m[mf.editDate] ?? m[mf.creationDate]);
+    if (Number.isFinite(edit) && edit > entry.latestEdit) {
+      entry.latestEdit = edit;
     }
   }
+
+  for (const r of resources) {
+    const raw = r.mission_id_rpt;
+    if (!raw) continue;
+    const name = String(raw).trim();
+    if (!name) continue;
+    // Defensive: a deployment may exist for a mission that has no
+    // official MCC yet (e.g. test data, or an MCC deleted out from
+    // under it). Still surface that mission so the user can manage it.
+    const entry = ensure(name);
+    entry.deployCount += 1;
+    const edit = Number(r.EditDate);
+    if (Number.isFinite(edit) && edit > entry.latestEdit) {
+      entry.latestEdit = edit;
+    }
+  }
+
   return Array.from(stats.values()).sort((a, b) => b.latestEdit - a.latestEdit);
 }
 
@@ -32,9 +60,9 @@ function fmtRelative(ms) {
   return `Latest activity: ${d.toLocaleString()}`;
 }
 
-export default function MissionPicker({ resources, loading, allowedMissions, onPick }) {
+export default function MissionPicker({ resources, mccs = [], loading, allowedMissions, onPick }) {
   const missions = useMemo(() => {
-    let m = summarizeMissions(resources);
+    let m = summarizeMissions(mccs, resources);
     if (allowedMissions && allowedMissions.length) {
       const allow = new Set(
         allowedMissions.map((s) => String(s).trim().toLowerCase()),
@@ -42,15 +70,15 @@ export default function MissionPicker({ resources, loading, allowedMissions, onP
       m = m.filter((x) => allow.has(String(x.name).trim().toLowerCase()));
     }
     return m;
-  }, [resources, allowedMissions]);
+  }, [resources, mccs, allowedMissions]);
 
   return (
     <div className="picker-wrap">
       <div className="picker-card">
         <h1>Choose a mission</h1>
         <p className="muted">
-          Pick a mission to view its resource deployments. You can switch
-          missions from the dropdown at the top of the board after.
+          Pick a mission to view its MCCs and resource deployments. You can
+          switch missions from the dropdown at the top of the board after.
         </p>
 
         {loading && missions.length === 0 ? (
@@ -62,9 +90,8 @@ export default function MissionPicker({ resources, loading, allowedMissions, onP
           <div className="picker-empty">
             <strong>No missions found.</strong>
             <p className="muted small">
-              The feature service returned data but no records have a
-              mission_id_rpt value. Check the layer or your account
-              permissions.
+              The MCC layer returned no records. Check the service URL in
+              src/config.js or your account permissions.
             </p>
           </div>
         ) : (
@@ -80,7 +107,13 @@ export default function MissionPicker({ resources, loading, allowedMissions, onP
                 >
                   <div className="mission-name">{m.name}</div>
                   <div className="mission-meta muted small">
-                    <span><strong>{m.count}</strong> resource{m.count === 1 ? '' : 's'}</span>
+                    <span>
+                      <strong>{m.mccCount}</strong> MCC{m.mccCount === 1 ? '' : 's'}
+                    </span>
+                    <span className="dot">·</span>
+                    <span>
+                      <strong>{m.deployCount}</strong> deployment{m.deployCount === 1 ? '' : 's'}
+                    </span>
                     {m.latestEdit > 0 && (
                       <>
                         <span className="dot">·</span>
@@ -92,8 +125,9 @@ export default function MissionPicker({ resources, loading, allowedMissions, onP
               ))}
             </div>
             <p className="picker-note muted small">
-              Don't see the mission you're looking for? Missions only appear
-              here once at least one resource has been deployed for them.
+              Missions appear here as soon as their first MCC is filed.
+              Pick a mission to start creating deployments for the MCCs
+              that don't have one yet.
             </p>
           </>
         )}

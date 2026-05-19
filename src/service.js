@@ -444,6 +444,45 @@ export async function fetchMccRequest({ requestNumber, missionId }) {
   return feats[0].attributes;
 }
 
+// Fetch every MCC record on the MCC layer (paged). Excludes drafts
+// (NULL or 0 MCC_number) the same way fetchMccsForMission does, so the
+// two return shapes are consistent. Used at app startup to populate
+// the mission picker — every distinct incidentid becomes a row in
+// the picker, whether or not it has resource deployments yet.
+export async function fetchAllMccs() {
+  await ensureFreshToken();
+  const TOKEN = getToken();
+  const f = MCC_SERVICE.fields;
+
+  const where =
+    `${f.mccNumber} IS NOT NULL ` +
+    `AND ${f.mccNumber} > 0`;
+
+  const allFeatures = [];
+  const pageSize = 2000;
+  let offset = 0;
+  let more   = true;
+  let safety = 50;
+  while (more && safety-- > 0) {
+    const params = new URLSearchParams({
+      where,
+      outFields:         '*',
+      returnGeometry:    'false',
+      f:                 'json',
+      resultOffset:      String(offset),
+      resultRecordCount: String(pageSize),
+      token:             TOKEN.accessToken,
+    });
+    const data = await arcgisFetch(`${MCC_SERVICE.url}/query?${params}`);
+    const feats = data.features || [];
+    allFeatures.push(...feats);
+    more = (data.exceededTransferLimit === true) || (feats.length === pageSize);
+    offset += feats.length;
+    if (feats.length === 0) break;
+  }
+  return allFeatures.map((feat) => feat.attributes);
+}
+
 // Fetch MCC records for a given mission (incidentid). Drafts without an
 // MCC_number are excluded — those aren't official yet and shouldn't
 // surface as candidates for deployment.

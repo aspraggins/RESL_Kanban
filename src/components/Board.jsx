@@ -10,7 +10,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core';
 import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE, FOLLOWUP_SERVICE } from '../config.js';
-import { fetchAllResources, fetchLayerMeta, updateAttributes, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
+import { fetchAllResources, fetchAllMccs, fetchLayerMeta, updateAttributes, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
 import MccColumn from './MccColumn.jsx';
@@ -234,6 +234,10 @@ export default function Board({ onSignOut }) {
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
   const [detailRow,    setDetailRow]     = useState(null);
   const [mccs,         setMccs]          = useState([]);
+  // Every MCC across every mission — used by the mission picker so a
+  // mission shows up as soon as the first MCC is filed, even if no
+  // deployments exist yet. Loaded once at startup alongside resources.
+  const [allMccs,      setAllMccs]       = useState([]);
   const [mccDetailRow, setMccDetailRow]  = useState(null);
   const [missionFollowups, setMissionFollowups] = useState([]);
   const [readOnly]     = useState(() => readUrlReadOnly());
@@ -248,8 +252,20 @@ export default function Board({ onSignOut }) {
   const refresh = useCallback(async () => {
     try {
       setError('');
-      const data = await fetchAllResources();
-      setResources(data);
+      // Load resources + all-MCCs in parallel so the picker can show
+      // missions sourced from MCCs (with deployment counts from
+      // resources) on the first paint. MCC failure is non-fatal — we
+      // log and proceed with an empty MCC list so the picker still
+      // works off the resources fallback below.
+      const [resData, mccData] = await Promise.all([
+        fetchAllResources(),
+        fetchAllMccs().catch((err) => {
+          console.warn('[RESL-Kanban] fetchAllMccs failed:', err);
+          return [];
+        }),
+      ]);
+      setResources(resData);
+      setAllMccs(mccData);
       setLastRefresh(new Date());
     } catch (err) {
       console.error(err);
@@ -515,6 +531,7 @@ export default function Board({ onSignOut }) {
       {needsMissionPick ? (
         <MissionPicker
           resources={resources}
+          mccs={allMccs}
           loading={loading}
           allowedMissions={allowedMissions}
           onPick={(m) => setFilters({ ...filters, mission: m })}
