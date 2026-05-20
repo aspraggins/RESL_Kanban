@@ -491,6 +491,12 @@ export async function fetchAllMccs() {
 export async function fetchAllInventory() {
   await ensureFreshToken();
   const TOKEN = getToken();
+  const f = INVENTORY_SERVICE.fields;
+
+  // Exclude Inactive items at query time so they never load into the
+  // available-inventory column. NULL status passes through (treated as
+  // active) — only the explicit string 'Inactive' is filtered out.
+  const where = `(${f.status} IS NULL) OR (${f.status} <> 'Inactive')`;
 
   const allFeatures = [];
   const pageSize = 2000;
@@ -499,7 +505,7 @@ export async function fetchAllInventory() {
   let safety = 50;
   while (more && safety-- > 0) {
     const params = new URLSearchParams({
-      where:             '1=1',
+      where,
       outFields:         '*',
       returnGeometry:    'false',
       f:                 'json',
@@ -515,6 +521,80 @@ export async function fetchAllInventory() {
     if (feats.length === 0) break;
   }
   return allFeatures.map((feat) => feat.attributes);
+}
+
+// Push the inventory layer's mobilization_status field in sync with a
+// deployment's current item_status. Joins by tag_number → ObjectID on
+// the source feature service (the read URL is a view that typically
+// rejects edits, hence the separate writeUrl in INVENTORY_SERVICE).
+//
+// Fire-and-forget: failures log a warning and don't bubble. The
+// deployment record is the source of truth — if the inventory write
+// hiccups, the next status change will re-sync.
+//
+// Null or empty newStatus is stored as the string "Unassigned" per
+// the user's choice, so the inventory's mobilization_status field is
+// never blank when an item is currently tied to a deployment.
+export async function updateInventoryMobilizationStatus(tagNumber, newStatus) {
+  if (tagNumber == null) return;
+  const tag = String(tagNumber).trim();
+  if (!tag) return;
+  if (!INVENTORY_SERVICE.writeUrl) return;
+
+  const statusValue = newStatus == null || String(newStatus).trim() === ''
+    ? 'Unassigned'
+    : String(newStatus);
+
+  try {
+    await ensureFreshToken();
+    const TOKEN = getToken();
+    const f = INVENTORY_SERVICE.fields;
+
+    // Find the inventory row by tag_number. We query the writable
+    // (source) layer so the ObjectID matches what applyEdits expects.
+    const safeTag = tag.replace(/'/g, "''");
+    const queryParams = new URLSearchParams({
+      where:          `${f.tagNumber} = '${safeTag}'`,
+      outFields:      f.objectId,
+      returnGeometry: 'false',
+      f:              'json',
+      token:          TOKEN.accessToken,
+    });
+    const qData = await arcgisFetch(
+      `${INVENTORY_SERVICE.writeUrl}/query?${queryParams}`
+    );
+    const feats = qData.features || [];
+    if (feats.length === 0) {
+      console.warn('[RESL-Kanban] inventory tag not found:', tag);
+      return;
+    }
+    const oid = feats[0].attributes[f.objectId];
+
+    const body = new URLSearchParams({
+      f:       'json',
+      token:   TOKEN.accessToken,
+      updates: JSON.stringify([{
+        attributes: {
+          [f.objectId]:           oid,
+          [f.mobilizationStatus]: statusValue,
+        },
+      }]),
+    });
+    const data = await arcgisFetch(`${INVENTORY_SERVICE.writeUrl}/applyEdits`, {
+      method:  'POST',
+      body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const result = (data.updateResults && data.updateResults[0]) || null;
+    if (!result || !result.success) {
+      console.warn(
+        '[RESL-Kanban] inventory mobilization_status update failed:',
+        result && result.error,
+      );
+    }
+  } catch (err) {
+    console.warn('[RESL-Kanban] updateInventoryMobilizationStatus error:', err);
+  }
 }
 
 // Create a new Equipment deployment from an inventory item dropped on
@@ -611,6 +691,15 @@ export async function createDeploymentFromInventory(mcc, inv, { status = null } 
     action:  'create',
     changed: Object.keys(attributes),
   });
+
+  // Reflect the new deployment back onto the inventory layer. Status
+  // here is whatever the caller passed (or null → "Unassigned"); the
+  // status will be re-synced by the drag-drop path whenever the user
+  // moves the new card into a real status column.
+  updateInventoryMobilizationStatus(
+    inv[inf.tagNumber],
+    status,
+  );
 
   return result;
 }

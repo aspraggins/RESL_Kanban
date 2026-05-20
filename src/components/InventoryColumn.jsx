@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { INVENTORY_SERVICE } from '../config.js';
+import { INVENTORY_SERVICE, COLUMNS, FIELDS, statusToColumnId } from '../config.js';
 
 // Leftmost column on the board — TEMA assigned inventory. Items are
 // read-only here and draggable onto an MCC card; the drop creates a
@@ -9,15 +9,19 @@ import { INVENTORY_SERVICE } from '../config.js';
 // model / description fields copied across (see
 // createDeploymentFromInventory in service.js).
 //
-// Already-deployed items are filtered out upstream in Board.jsx so this
-// component just renders whatever it's handed.
+// Items currently linked to a non-Demobilized deployment render a
+// colored status pill matching that deployment's column accent, and
+// their drag is disabled so they can't be re-deployed elsewhere
+// without first being demobilized.
 export default function InventoryColumn({
   label,
   accent,
   items = [],
+  deployedByTag,        // Map<string tag, resource record>
+  historyByTag,         // Map<string tag, { count, missionCount, lastEdit }>
   loading = false,
   readOnly = false,
-  pendingTagNumbers,   // Set<string> of tags currently being deployed
+  pendingTagNumbers,    // Set<string> of tags currently being deployed
 }) {
   const [query, setQuery] = useState('');
 
@@ -54,20 +58,26 @@ export default function InventoryColumn({
         {loading && items.length === 0 ? (
           <div className="empty-hint">Loading inventory…</div>
         ) : items.length === 0 ? (
-          <div className="empty-hint">No available inventory.</div>
+          <div className="empty-hint">No inventory available.</div>
         ) : filtered.length === 0 ? (
           <div className="empty-hint">No matches for "{query}".</div>
         ) : (
-          filtered.map((it) => (
-            <InventoryCard
-              key={it[INVENTORY_SERVICE.fields.objectId]}
-              inv={it}
-              readOnly={readOnly}
-              pending={!!(pendingTagNumbers && pendingTagNumbers.has(
-                String(it[INVENTORY_SERVICE.fields.tagNumber] ?? '').trim(),
-              ))}
-            />
-          ))
+          filtered.map((it) => {
+            const tag = String(it[INVENTORY_SERVICE.fields.tagNumber] ?? '').trim();
+            const deployment = (tag && deployedByTag) ? deployedByTag.get(tag) : null;
+            const history    = (tag && historyByTag)  ? historyByTag.get(tag)  : null;
+            const pending = !!(pendingTagNumbers && pendingTagNumbers.has(tag));
+            return (
+              <InventoryCard
+                key={it[INVENTORY_SERVICE.fields.objectId]}
+                inv={it}
+                deployment={deployment}
+                history={history}
+                readOnly={readOnly}
+                pending={pending}
+              />
+            );
+          })
         )}
       </div>
     </div>
@@ -83,7 +93,29 @@ const v = (obj, key) => {
   return s.length ? s : null;
 };
 
-function InventoryCard({ inv, readOnly = false, pending = false }) {
+// Look up the accent color for a deployment status by translating
+// status → column id → COLUMNS entry.
+function accentForStatus(status) {
+  const id  = statusToColumnId(status);
+  const col = COLUMNS.find((c) => c.id === id);
+  return col && col.accent ? col.accent : '#94a3b8';
+}
+
+// Short date for the history line — matches the existing card chip
+// style elsewhere ("5/14/2026"). Returns null on bad/missing input so
+// the caller can decide whether to render the line at all.
+function fmtShortDate(ms) {
+  if (ms == null || ms === '') return null;
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const d = new Date(n);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    month: 'numeric', day: 'numeric', year: 'numeric',
+  });
+}
+
+function InventoryCard({ inv, deployment, history, readOnly = false, pending = false }) {
   const f   = INVENTORY_SERVICE.fields;
   const oid = inv[f.objectId];
   const tag = v(inv, f.tagNumber);
@@ -92,14 +124,23 @@ function InventoryCard({ inv, readOnly = false, pending = false }) {
   const md  = v(inv, f.model);
   const dsc = v(inv, f.description);
 
-  // useDraggable always returns the listeners/setNodeRef so we can
-  // attach them to the card. `data` carries the full inventory record
-  // through to onDragEnd in Board.jsx — that's what the drop handler
-  // reads to build the new deployment.
+  // Deployment context (if any). Active = has a status AND that status
+  // isn't 'Demobilized' — locked from dragging in that case.
+  const depStatus = deployment ? String(deployment[FIELDS.status] || '').trim() : '';
+  const isActive  = !!deployment && depStatus !== '' && depStatus !== 'Demobilized';
+  const isDemob   = !!deployment && depStatus === 'Demobilized';
+  // Pill label: status verbatim, or "Unassigned" if linked but blank.
+  const pillLabel = deployment ? (depStatus || 'Unassigned') : null;
+  const pillColor = deployment ? accentForStatus(depStatus) : null;
+
+  // Lock the drag whenever the item is actively deployed. Demobilized
+  // and never-deployed (no linked record) stay draggable.
+  const locked = isActive;
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id:   `inv:${oid}`,
     data: { type: 'inventory', item: inv },
-    disabled: readOnly || pending,
+    disabled: readOnly || pending || locked,
   });
 
   const style = {
@@ -107,14 +148,22 @@ function InventoryCard({ inv, readOnly = false, pending = false }) {
     opacity: isDragging ? 0 : 1,
   };
 
+  const classes = ['card', 'inventory-card'];
+  if (pending) classes.push('is-pending');
+  if (locked)  classes.push('is-locked');
+  if (isDemob) classes.push('is-demob');
+
+  let title;
+  if (pending)    title = 'Deploying — please wait…';
+  else if (locked) title = `Currently deployed (${depStatus}) — demobilize first to re-deploy`;
+  else            title = 'Drag onto an MCC card to deploy this item';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`card inventory-card${pending ? ' is-pending' : ''}`}
-      title={pending
-        ? 'Deploying — please wait…'
-        : 'Drag onto an MCC card to deploy this item'}
+      className={classes.join(' ')}
+      title={title}
       {...attributes}
       {...listeners}
     >
@@ -127,6 +176,41 @@ function InventoryCard({ inv, readOnly = false, pending = false }) {
             </div>
           )}
           {dsc && <div className="card-county muted small">{dsc}</div>}
+          {pillLabel && (
+            <div
+              className="inventory-pill"
+              style={{
+                '--pill-color': pillColor,
+              }}
+              aria-label={`Currently ${pillLabel}`}
+            >
+              {locked && <span className="inventory-pill-lock" aria-hidden="true">🔒</span>}
+              {pillLabel}
+            </div>
+          )}
+          {history && history.count > 0 && (() => {
+            const parts = [];
+            if (history.thisMissionCount > 0) {
+              parts.push(`${history.thisMissionCount} this mission`);
+            }
+            if (history.priorMissionCount > 0) {
+              const n = history.priorMissionCount;
+              parts.push(`${n} prior mission${n === 1 ? '' : 's'}`);
+            }
+            // Fallback when none of the records had a mission_id_rpt
+            // value — still surface the raw deployment count so the
+            // card doesn't look empty.
+            if (parts.length === 0) {
+              parts.push(`${history.count} deployment${history.count === 1 ? '' : 's'}`);
+            }
+            const lastDate = fmtShortDate(history.lastEdit);
+            if (lastDate) parts.push(`last ${lastDate}`);
+            return (
+              <div className="inventory-history muted small">
+                {parts.join(' · ')}
+              </div>
+            );
+          })()}
         </div>
         <div className="card-right">
           {tag && (

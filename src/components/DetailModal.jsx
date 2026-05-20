@@ -1424,6 +1424,40 @@ function fmtHistoryValue(fieldName, v) {
   return s;
 }
 
+// Build a short context string list from a history row's snapshot —
+// what the row is ABOUT, so a reader of the timeline can tell which
+// piece of equipment / which team moved status without opening the
+// detail modal. Equipment surfaces tag + item + make + model/serial;
+// Team surfaces identifier + team_kind. Returns an empty array if no
+// useful context is present (kind unknown, no fields populated).
+function buildEquipmentContext(row) {
+  const kind = String(row.resource_kind || '').toLowerCase();
+  const parts = [];
+  const push = (label, value) => {
+    if (value == null || value === '') return;
+    const s = String(value).trim();
+    if (!s) return;
+    parts.push(label ? `${label} ${s}` : s);
+  };
+  if (kind === 'equipment') {
+    push('Tag #', row.tag_number);
+    push('',      row.item);
+    push('',      row.make);
+    // `serial` holds model on inventory-created deployments per the
+    // mapping in createDeploymentFromInventory.
+    push('',      row.serial);
+  } else if (kind === 'team') {
+    push('', row.identifier);
+    push('', row.team_kind);
+    if (row.personnel_count) push('×', row.personnel_count);
+  } else {
+    // Unknown kind — still surface anything identifying we have.
+    push('Tag #', row.tag_number);
+    push('',      row.item || row.identifier);
+  }
+  return parts;
+}
+
 function HistoryRow({ row, previous }) {
   const a = HISTORY_SERVICE.audit;
   const when    = fmtDateTime(row[a.changeTs]);
@@ -1435,6 +1469,10 @@ function HistoryRow({ row, previous }) {
   // the very first history row (where there's no `previous` to diff
   // against).
   if (action === 'status_change') {
+    // Build a short identifying context from the snapshot — tag/item
+    // for Equipment, identifier + team_kind for Team — so the reader
+    // knows WHICH item moved status without having to drill in.
+    const contextParts = buildEquipmentContext(row);
     return (
       <li className="followup-card">
         <header className="followup-head">
@@ -1453,6 +1491,16 @@ function HistoryRow({ row, previous }) {
             <span className="history-arrow muted">→</span>
             <span className="history-status">{row[a.newStatus] || '—'}</span>
           </span>
+          {contextParts.length > 0 && (
+            <div className="history-context muted small">
+              {contextParts.map((p, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="dot"> · </span>}
+                  {p}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </li>
     );

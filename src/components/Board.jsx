@@ -10,7 +10,7 @@ import {
   closestCenter,
 } from '@dnd-kit/core';
 import { COLUMNS, STATUS_COLUMNS, FIELDS, CONFIG, statusToColumnId, MCC_SERVICE, FOLLOWUP_SERVICE, INVENTORY_SERVICE } from '../config.js';
-import { fetchAllResources, fetchAllMccs, fetchAllInventory, fetchLayerMeta, updateAttributes, createDeploymentFromInventory, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
+import { fetchAllResources, fetchAllMccs, fetchAllInventory, fetchLayerMeta, updateAttributes, createDeploymentFromInventory, updateInventoryMobilizationStatus, fetchMccsForMission, fetchFollowupsForMission } from '../service.js';
 import Column from './Column.jsx';
 import Card from './Card.jsx';
 import MccColumn from './MccColumn.jsx';
@@ -448,30 +448,94 @@ export default function Board({ onSignOut }) {
     return out;
   }, [filtered, sortBy]);
 
-  // Tag numbers currently in use on a non-Demobilized deployment.
-  // Used to hide inventory items that are already out. Demobilized
-  // items have come back, so they're available again.
-  const deployedTagNumbers = useMemo(() => {
-    const set = new Set();
+  // tag_number → current deployment record. Used by the inventory
+  // column to render a colored status pill on each item and to lock
+  // drag on actively-deployed items. When multiple deployments share
+  // a tag (history of demobs + a current active deployment), prefer
+  // the non-Demobilized one; otherwise pick the most recently edited.
+  const deployedByTag = useMemo(() => {
+    const map = new Map();
     for (const r of resources) {
       const tag = String(r[FIELDS.tagNumber] ?? '').trim();
       if (!tag) continue;
-      const status = String(r[FIELDS.status] ?? '').trim();
-      if (status === 'Demobilized') continue;
-      set.add(tag);
+      const existing = map.get(tag);
+      if (!existing) { map.set(tag, r); continue; }
+
+      const rActive = String(r[FIELDS.status] || '').trim() !== 'Demobilized';
+      const eActive = String(existing[FIELDS.status] || '').trim() !== 'Demobilized';
+      if (rActive && !eActive) { map.set(tag, r); continue; }
+      if (!rActive && eActive) continue;
+
+      // Both active (shouldn't happen) or both demobilized — pick the
+      // most recently edited record so the pill reflects current state.
+      const re = Number(r[FIELDS.editDate] || 0);
+      const ee = Number(existing[FIELDS.editDate] || 0);
+      if (re > ee) map.set(tag, r);
     }
-    return set;
+    return map;
   }, [resources]);
 
-  const availableInventory = useMemo(() => {
-    if (!deployedTagNumbers.size) return inventoryItems;
-    const tagField = INVENTORY_SERVICE.fields.tagNumber;
-    return inventoryItems.filter((it) => {
-      const tag = String(it[tagField] ?? '').trim();
-      // Items without a tag number always show — we can't dedupe them.
-      return !tag || !deployedTagNumbers.has(tag);
-    });
-  }, [inventoryItems, deployedTagNumbers]);
+  // tag_number → aggregated history. Computed on-the-fly from the
+  // deployment layer (no separate storage) and passed to the Inventory
+  // column so each card can render a small "N this mission · M prior
+  // missions · last MM/DD/YYYY" line under its status pill.
+  //
+  // Returned shape per tag:
+  //   {
+  //     count:             total deployment records for this tag,
+  //     missionCount:      distinct missions across all records,
+  //     thisMissionCount:  records on the currently-selected mission,
+  //     priorMissionCount: distinct missions OTHER than the current one,
+  //     lastEdit:          most recent EditDate across all records,
+  //   }
+  // Tags with no deployment history are absent from the map.
+  const deploymentHistoryByTag = useMemo(() => {
+    const currentMissionId = filters.mission
+      ? String(filters.mission).trim()
+      : null;
+
+    const work = new Map();
+    for (const r of resources) {
+      const tag = String(r[FIELDS.tagNumber] ?? '').trim();
+      if (!tag) continue;
+      let entry = work.get(tag);
+      if (!entry) {
+        entry = {
+          count: 0,
+          missions:      new Set(),
+          priorMissions: new Set(),
+          thisMissionCount: 0,
+          lastEdit: 0,
+        };
+        work.set(tag, entry);
+      }
+      entry.count += 1;
+      const mid = r[FIELDS.missionId];
+      if (mid) {
+        const m = String(mid).trim();
+        entry.missions.add(m);
+        if (currentMissionId && m === currentMissionId) {
+          entry.thisMissionCount += 1;
+        } else {
+          entry.priorMissions.add(m);
+        }
+      }
+      const edit = Number(r[FIELDS.editDate] || 0);
+      if (edit > entry.lastEdit) entry.lastEdit = edit;
+    }
+
+    const out = new Map();
+    for (const [tag, e] of work) {
+      out.set(tag, {
+        count:             e.count,
+        missionCount:      e.missions.size,
+        thisMissionCount:  e.thisMissionCount,
+        priorMissionCount: e.priorMissions.size,
+        lastEdit:          e.lastEdit,
+      });
+    }
+    return out;
+  }, [resources, filters.mission]);
 
   const activeResource = activeId
     ? resources.find((r) => String(r[FIELDS.objectId]) === activeId)
@@ -562,17 +626,37 @@ export default function Board({ onSignOut }) {
     const now = Date.now();
 
     // Build the full attribute partial for the applyEdits payload.
-    // Default is just the status change; dropping into Demobilized
-    // also stamps today's demob date and recalcs days_deployed in the
-    // same write so it's atomic (and so the history row carries all
-    // three fields under a single status_change action).
+    // Default is just the status change; certain target columns also
+    // stamp date fields (mobilization / demobilization) and recalc
+    // days_deployed in the same write so it's atomic, and so the
+    // history row carries every changed field under a single
+    // status_change action.
     const partial = { [FIELDS.status]: newStatus };
+    const today = todayUtcMidnightMs();
+
     const isDemobDrop = targetColId === 'demobilized';
+    const isMobDrop   = (targetColId === 'enroute' || targetColId === 'onscene');
+
     if (isDemobDrop) {
-      const today = todayUtcMidnightMs();
+      // Always stamp the demob date — drag to Demobilized = "they
+      // demobilized today" per the existing rule.
       partial.item_demobilization = today;
       const days = daysBetween(current.item_mobilization, today);
       if (days != null) partial.days_deployed = days;
+    }
+
+    if (isMobDrop) {
+      // Only stamp if currently blank — preserves a mobilization date
+      // set earlier (manually via the modal, or by an earlier En Route
+      // drop) so going En Route → On Scene the next day doesn't
+      // overwrite yesterday's mob date with today's.
+      const existingMob = current.item_mobilization;
+      const isBlank = existingMob == null || existingMob === '' || !Number.isFinite(Number(existingMob));
+      if (isBlank) {
+        partial.item_mobilization = today;
+        const days = daysBetween(today, current.item_demobilization);
+        if (days != null) partial.days_deployed = days;
+      }
     }
 
     // Snapshot the prior values of every field we're about to write so
@@ -595,6 +679,11 @@ export default function Board({ onSignOut }) {
       // Pass `current` (pre-edit row) so the history log can capture
       // a full snapshot and the prev/new status fields.
       await updateAttributes(oid, partial, current);
+      // Mirror the new status to the inventory layer so dashboards
+      // built on the inventory service stay in sync. Fire-and-forget —
+      // failures log a warning but don't roll back the deployment edit.
+      const tag = current[FIELDS.tagNumber];
+      if (tag) updateInventoryMobilizationStatus(tag, newStatus);
     } catch (err) {
       console.error('drop update failed:', err);
       const label = current[FIELDS.requestNumber] ? `Request #${current[FIELDS.requestNumber]}` : 'this resource';
@@ -702,7 +791,9 @@ export default function Board({ onSignOut }) {
                       key={c.id}
                       label={c.label}
                       accent={c.accent}
-                      items={availableInventory}
+                      items={inventoryItems}
+                      deployedByTag={deployedByTag}
+                      historyByTag={deploymentHistoryByTag}
                       loading={loading}
                       readOnly={readOnly}
                       pendingTagNumbers={pendingInventoryTags}

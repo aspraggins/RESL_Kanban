@@ -411,11 +411,49 @@ button { font-family: inherit; cursor: pointer; }
   opacity: .55;
   pointer-events: none;
 }
+.inventory-card.is-locked {
+  cursor: not-allowed;
+  background: #fafbfc;
+}
+.inventory-card.is-locked:active { cursor: not-allowed; }
+.inventory-card.is-demob {
+  /* Demobilized items are draggable again — slight visual nudge so
+     they read as "available, but returned" rather than fresh. */
+  background: #fdfdfd;
+}
 .inventory-card .card-pending {
   margin-top: 6px;
   font-size: 12px;
   font-style: italic;
   color: var(--muted);
+}
+/* Status pill on inventory cards — color comes from the linked
+   deployment's column accent via the --pill-color CSS variable. */
+.inventory-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--pill-color, #94a3b8) 22%, white);
+  color: color-mix(in srgb, var(--pill-color, #94a3b8) 75%, black);
+  border: 1px solid color-mix(in srgb, var(--pill-color, #94a3b8) 40%, white);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.inventory-pill-lock {
+  font-size: 10px;
+  margin-right: 1px;
+}
+/* Sub-line under the status pill — distinct-mission count and last
+   deployment date, computed on-the-fly from the resources state. */
+.inventory-history {
+  margin-top: 4px;
+  font-style: italic;
 }
 /* MCC card highlight while an inventory drag hovers over it — a
    subtle ring + lift makes the drop target unmistakable. */
@@ -1054,6 +1092,14 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--text);
   font-weight: 500;
 }
+.history-context {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: baseline;
+}
+.history-context .dot { color: #c7d0dc; }
 
 /* Address typeahead — dropdown sits below the input. */
 .address-autocomplete {

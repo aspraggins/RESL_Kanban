@@ -267,15 +267,28 @@ export function labelFor(fieldName) {
 //  it. We only read for display + filter.
 // ============================================================================
 export const INVENTORY_SERVICE = {
+  // Read URL — the view, used by fetchAllInventory to populate the
+  // leftmost board column. Views often reject edits, hence the split.
   url: import.meta.env.VITE_INVENTORY_URL ||
        'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/TEMA_Assigned_Inventory_Tracking_(view_only)/FeatureServer/0',
+  // Write URL — the source feature service behind the view. Used by
+  // updateInventoryMobilizationStatus to push status changes (e.g.
+  // when a linked deployment goes Staged → On Scene → Demobilized).
+  writeUrl: import.meta.env.VITE_INVENTORY_WRITE_URL ||
+            'https://services1.arcgis.com/kILp9lqGUeOhnDbI/ArcGIS/rest/services/service_46a68401054a4b83bf84cf959c3ee7aa/FeatureServer/0',
   fields: {
-    objectId:    'objectid',
-    tagNumber:   'tag_number',
-    item:        'item',
-    make:        'make',
-    model:       'model',
-    description: 'description',
+    objectId:           'objectid',
+    tagNumber:          'tag_number',
+    item:               'item',
+    make:               'make',
+    model:              'model',
+    description:        'description',
+    // Inventory-side status (Active / Inactive / etc.) — separate from
+    // mobilization_status. Items with status='Inactive' are filtered
+    // out of the available inventory list entirely.
+    status:             'status',
+    statusReason:       'status_reason',
+    mobilizationStatus: 'mobilization_status',
   },
 };
 
