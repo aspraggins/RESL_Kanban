@@ -151,8 +151,11 @@ workflow shouldn't be visible — e.g. a public stakeholder dashboard, or
 an Experience Builder view focused only on MCC + status columns. When
 set, the inventory fetch is skipped entirely (no extra bandwidth) and
 the column is removed from both the board and the Columns toggle so it
-can't be brought back in-session. Combines naturally with `readonly=1`
-for a fully view-only public board.
+can't be brought back in-session. The Unassigned column is also
+default-hidden when `hide_inventory=1` since it's the landing pad for
+inventory drops; users can still toggle it back on via the Columns
+control. Combines naturally with `readonly=1` for a fully view-only
+public board.
 
 Combine any number of them: `?mission=...&esf=...`. **You must URL-encode
 `#` as `%23`** — a literal `#` in a URL marks the fragment, so anything

@@ -239,10 +239,16 @@ export default function Board({ onSignOut }) {
     });
   }, []);
 
-  // Default-hide any column flagged defaultHidden in the COLUMNS config.
+  // Default-hide any column flagged defaultHidden in the COLUMNS
+  // config. When the URL has ?hide_inventory=1 we also default-hide
+  // the Unassigned column since it's the landing pad for inventory
+  // drops — pointless to show on a board where that workflow doesn't
+  // exist. The user can still toggle Unassigned back on via the
+  // Columns control if they want.
   const [hiddenColumns, setHiddenColumns] = useState(() => {
     const s = new Set();
     for (const c of COLUMNS) if (c.defaultHidden) s.add(c.id);
+    if (readUrlHideInventory()) s.add('_unassigned');
     return s;
   });
   const [sortBy,       setSortBy]        = useState('updated'); // 'updated' | 'request'
