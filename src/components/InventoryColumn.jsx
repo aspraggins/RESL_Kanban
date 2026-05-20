@@ -124,17 +124,20 @@ function InventoryCard({ inv, deployment, history, readOnly = false, pending = f
   const md  = v(inv, f.model);
   const dsc = v(inv, f.description);
 
-  // Deployment context (if any). Active = has a status AND that status
-  // isn't 'Demobilized' — locked from dragging in that case.
+  // Deployment context (if any). Any non-Demobilized deployment counts
+  // as "actively linked" — including Unassigned (empty status), since
+  // an Unassigned deployment record already exists for this tag and
+  // dragging it again would create a duplicate.
   const depStatus = deployment ? String(deployment[FIELDS.status] || '').trim() : '';
-  const isActive  = !!deployment && depStatus !== '' && depStatus !== 'Demobilized';
   const isDemob   = !!deployment && depStatus === 'Demobilized';
+  const isActive  = !!deployment && !isDemob;
   // Pill label: status verbatim, or "Unassigned" if linked but blank.
   const pillLabel = deployment ? (depStatus || 'Unassigned') : null;
   const pillColor = deployment ? accentForStatus(depStatus) : null;
 
-  // Lock the drag whenever the item is actively deployed. Demobilized
-  // and never-deployed (no linked record) stay draggable.
+  // Lock the drag whenever the item has any non-Demobilized deployment
+  // (including Unassigned). Demobilized and never-deployed items stay
+  // draggable so they can be assigned to a new MCC.
   const locked = isActive;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -155,7 +158,7 @@ function InventoryCard({ inv, deployment, history, readOnly = false, pending = f
 
   let title;
   if (pending)    title = 'Deploying — please wait…';
-  else if (locked) title = `Currently deployed (${depStatus}) — demobilize first to re-deploy`;
+  else if (locked) title = `Currently deployed (${pillLabel}) — demobilize first to re-deploy`;
   else            title = 'Drag onto an MCC card to deploy this item';
 
   return (
