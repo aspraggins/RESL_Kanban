@@ -136,7 +136,7 @@ function MccCard({ m, lastFollowupTs, needsFollowup = false, onFilter, onShowDet
       tabIndex={0}
       onClick={onFilter}
       onKeyDown={handleKey}
-      title={`Filter deployments to MCC #${mccNum ?? ''}`}
+
     >
       <button
         type="button"
@@ -152,18 +152,20 @@ function MccCard({ m, lastFollowupTs, needsFollowup = false, onFilter, onShowDet
       </button>
       <div className="card-grid">
         <div className="card-left">
-          <div className="card-title">{mccNum ? `MCC #${mccNum}` : '—'}</div>
+          <div className="card-title-row">
+            <div className="card-title">{mccNum ? `MCC #${mccNum}` : '—'}</div>
+            {needsFollowup && (
+              <div className="followup-needed small">
+                <span className="followup-dot" aria-hidden="true" />
+                Followup needed
+              </div>
+            )}
+          </div>
           {county && <div className="card-county">{county} County</div>}
           {lastFu.text && (
             <div className={`card-updated small${lastFu.tier ? ` is-fresh-${lastFu.tier}` : ' muted'}`}>
               {lastFu.tier === 'hour' && <span className="fresh-dot" aria-hidden="true" />}
               Last followup {lastFu.text}
-            </div>
-          )}
-          {needsFollowup && (
-            <div className="followup-needed small">
-              <span className="followup-dot" aria-hidden="true" />
-              Followup needed
             </div>
           )}
           {status && <div className="card-county muted small">{status}</div>}

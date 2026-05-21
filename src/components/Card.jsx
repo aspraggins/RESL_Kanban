@@ -292,19 +292,21 @@ function CardView({ r, pending, needsFollowup = false, lastFollowupTs = null, st
           )}
         </div>
         <div className="card-right">
-          {kindLabel && <div className="card-kind">{kindLabel}</div>}
+          <div className="card-kind-row">
+            {kindLabel && <div className="card-kind">{kindLabel}</div>}
+            {status && (
+              <span
+                className="card-status-pill"
+                style={{ background: statusBg, color: statusFg }}
+              >
+                {status}
+              </span>
+            )}
+          </div>
           {qtyLine && <div className="card-qty">{qtyLine}</div>}
           {nameLine && <div className="card-name">{nameLine}</div>}
           {entity && <div className="card-entity muted small">{entity}</div>}
           {address && <div className="card-address muted small">{address}</div>}
-          {status && (
-            <span
-              className="card-status-pill"
-              style={{ background: statusBg, color: statusFg }}
-            >
-              {status}
-            </span>
-          )}
         </div>
       </div>
       <div className="card-footer">
