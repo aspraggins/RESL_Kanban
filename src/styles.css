@@ -710,6 +710,13 @@ button { font-family: inherit; cursor: pointer; }
   50%      { opacity: 0.5; transform: scale(0.8); }
 }
 
+/* Followup timestamp chip — soft teal so it's visually distinct from
+   the plain grey ESF chip sitting next to it in the card footer. */
+.card-followup-chip {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 /* ─── Followup-needed highlight ──────────────────────────────────────
    Red left border + faint red gradient. Takes visual priority over the
    stale (amber) treatment — both classes can coexist but "needs

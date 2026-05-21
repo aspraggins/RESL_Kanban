@@ -873,6 +873,7 @@ export default function Board({ onSignOut }) {
                       resources={grouped._unassigned}
                       pending={pending}
                       needsFollowupByOid={needsFollowupByOid}
+                      latestFollowupByMcc={latestFollowupByMcc}
                       droppable
                       readOnly={readOnly}
                       onShowDetail={setDetailRow}
@@ -890,6 +891,7 @@ export default function Board({ onSignOut }) {
                     resources={grouped[c.id] || []}
                     pending={pending}
                     needsFollowupByOid={needsFollowupByOid}
+                    latestFollowupByMcc={latestFollowupByMcc}
                     droppable
                     readOnly={readOnly}
                     onShowDetail={setDetailRow}

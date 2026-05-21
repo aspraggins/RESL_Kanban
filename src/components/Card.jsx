@@ -2,12 +2,12 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { COLUMNS, FIELDS, statusToColumnId } from '../config.js';
 
-export default function Card({ r, pending = false, dragging = false, needsFollowup = false, readOnly = false, onShowDetail }) {
+export default function Card({ r, pending = false, dragging = false, needsFollowup = false, lastFollowupTs = null, readOnly = false, onShowDetail }) {
   if (dragging) return <CardView r={r} pending={pending} dragging />;
-  return <DraggableCard r={r} pending={pending} needsFollowup={needsFollowup} readOnly={readOnly} onShowDetail={onShowDetail} />;
+  return <DraggableCard r={r} pending={pending} needsFollowup={needsFollowup} lastFollowupTs={lastFollowupTs} readOnly={readOnly} onShowDetail={onShowDetail} />;
 }
 
-function DraggableCard({ r, pending, needsFollowup, readOnly, onShowDetail }) {
+function DraggableCard({ r, pending, needsFollowup, lastFollowupTs, readOnly, onShowDetail }) {
   const oid = r[FIELDS.objectId];
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: String(oid),
@@ -22,6 +22,7 @@ function DraggableCard({ r, pending, needsFollowup, readOnly, onShowDetail }) {
       r={r}
       pending={pending}
       needsFollowup={needsFollowup}
+      lastFollowupTs={lastFollowupTs}
       style={style}
       forwardRef={setNodeRef}
       handleProps={{ ...attributes, ...listeners }}
@@ -199,8 +200,34 @@ function statusAccent(status) {
   return col ? col.accent : '#94a3b8';
 }
 
+// Format a followup epoch-ms timestamp into a short human-readable string.
+// Returns null when the timestamp is missing or invalid.
+function describeFollowup(ms) {
+  if (ms == null) return null;
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const d = new Date(n);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const now = Date.now();
+  const minutesAgo = Math.floor((now - n) / 60000);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const t = d
+    .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    .replace(' AM', 'a').replace(' PM', 'p');
+
+  if (minutesAgo < 1)  return 'Just now';
+  if (minutesAgo < 60) return `${minutesAgo} min ago`;
+  if (n >= startOfToday.getTime()) return `Today · ${t}`;
+
+  const mdy = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+  return `${mdy} ${t}`;
+}
+
 // ─── Render ────────────────────────────────────────────────────────────
-function CardView({ r, pending, needsFollowup = false, style, dragging = false, forwardRef, handleProps = {}, onShowDetail }) {
+function CardView({ r, pending, needsFollowup = false, lastFollowupTs = null, style, dragging = false, forwardRef, handleProps = {}, onShowDetail }) {
   const oid       = r[FIELDS.objectId];
   const reqNum    = v(r, FIELDS.requestNumber);
   const county    = v(r, FIELDS.county);
@@ -282,6 +309,12 @@ function CardView({ r, pending, needsFollowup = false, style, dragging = false, 
       </div>
       <div className="card-footer">
         {esf     && <span className="card-chip">ESF · {esf}</span>}
+        {!dragging && (() => {
+          const fuText = describeFollowup(lastFollowupTs);
+          return fuText
+            ? <span className="card-chip card-followup-chip">Followup · {fuText}</span>
+            : null;
+        })()}
         {pending && <span className="card-pending">Saving…</span>}
       </div>
     </div>
