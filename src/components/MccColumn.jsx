@@ -124,6 +124,7 @@ function priorityChipClass(priority) {
 function MccCard({ m, lastFollowupTs, needsFollowup = false, deploymentCount = 0, onFilter, onShowDetail }) {
   const f = MCC_SERVICE.fields;
   const mccNum   = v(m, f.mccNumber);
+  const assignTo = v(m, f.assignTo);
   const subject  = v(m, f.subject);
   const type     = v(m, f.type);
   const priority = v(m, f.priority);
@@ -197,6 +198,7 @@ function MccCard({ m, lastFollowupTs, needsFollowup = false, deploymentCount = 0
               </div>
             )}
           </div>
+          {assignTo && <div className="card-assign-to small">{assignTo}</div>}
           {county && <div className="card-county">{county} County</div>}
           {lastFu.text && (
             <div className={`card-updated small${lastFu.tier ? ` is-fresh-${lastFu.tier}` : ' muted'}`}>

@@ -277,13 +277,11 @@ function CardView({ r, pending, needsFollowup = false, lastFollowupTs = null, st
         <div className="card-left">
           <div className="card-title-row">
             <div className="card-title">{reqNum ? `#${reqNum}` : '—'}</div>
-            {status && (
-              <span
-                className="card-status-pill"
-                style={{ background: statusBg, color: statusFg }}
-              >
-                {status}
-              </span>
+            {needsFollowup && !dragging && (
+              <div className="followup-needed small">
+                <span className="followup-dot" aria-hidden="true" />
+                Followup needed
+              </div>
             )}
           </div>
           {county && <div className="card-county">{county} County</div>}
@@ -294,11 +292,13 @@ function CardView({ r, pending, needsFollowup = false, lastFollowupTs = null, st
               Updated {edit.text}
             </div>
           )}
-          {needsFollowup && !dragging && (
-            <div className="followup-needed small">
-              <span className="followup-dot" aria-hidden="true" />
-              Followup needed
-            </div>
+          {status && !dragging && (
+            <span
+              className="card-status-pill"
+              style={{ background: statusBg, color: statusFg }}
+            >
+              {status}
+            </span>
           )}
         </div>
         <div className="card-right">
