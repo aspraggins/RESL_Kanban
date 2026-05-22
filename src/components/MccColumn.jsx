@@ -124,16 +124,11 @@ function priorityChipClass(priority) {
 function MccCard({ m, lastFollowupTs, needsFollowup = false, deploymentCount = 0, onFilter, onShowDetail }) {
   const f = MCC_SERVICE.fields;
   const mccNum   = v(m, f.mccNumber);
-  // Collect all assign_to slots, drop blanks and Survey123 "(select)" placeholders.
-  const assignTo = [f.assignTo, f.assignTo2, f.assignTo3, f.assignTo4]
-    .map((key) => {
-      const raw = v(m, key);
-      if (!raw) return null;
-      if (/^\(?\s*select\s*\)?$/i.test(raw)) return null;
-      return raw;
-    })
-    .filter(Boolean)
-    .join(', ') || null;
+  // Show only the primary assign_to on the card face; extras appear in the popup.
+  const rawAssignTo = v(m, f.assignTo);
+  const assignTo = (rawAssignTo && !/^\(?\s*select\s*\)?$/i.test(rawAssignTo))
+    ? rawAssignTo
+    : null;
   const subject  = v(m, f.subject);
   const type     = v(m, f.type);
   const priority = v(m, f.priority);

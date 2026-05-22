@@ -294,7 +294,10 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
 
             <Section title="Mission Coordination Center" rows={[
               { label: 'From',     value: mcc[f.mccPosition] },
-              { label: 'To',       value: [f.assignTo, f.assignTo2, f.assignTo3, f.assignTo4].map((k) => assignToDisplay(mcc[k])).filter(Boolean).join(', ') || null },
+              { label: 'To',         value: assignToDisplay(mcc[f.assignTo]) },
+              { label: 'Assigned 2', value: assignToDisplay(mcc[f.assignTo2]) },
+              { label: 'Assigned 3', value: assignToDisplay(mcc[f.assignTo3]) },
+              { label: 'Assigned 4', value: assignToDisplay(mcc[f.assignTo4]) },
               { label: 'Type',     value: mcc[f.type] },
               { label: 'Priority', value: mcc[f.priority] },
               { label: 'Status',   value: mcc[f.status] },
