@@ -14,6 +14,21 @@ function fmtDateTime(v) {
   if (!Number.isNaN(d2.getTime())) return d2.toLocaleString();
   return String(v);
 }
+// Formats a time-only epoch ms value (WebEOC stores these anchored to
+// ~Jan 1 1900, so the date portion is meaningless — extract time only).
+// Also handles plain time strings like "08:00:00" as a fallback.
+function fmtTime(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) {
+    const s = String(v).trim();
+    return s || null;
+  }
+  const d = new Date(n);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
 function fmtDate(v) {
   if (v == null || v === '') return null;
   const n = Number(v);
@@ -247,16 +262,19 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
           <div className="modal-body">
             <Section title="Requestor Information" rows={[
               { label: 'Originator',      value: mcc[f.originator] },
-              { label: 'Position',        value: mcc[f.mccPosition] },
+              { label: 'Position',        value: mcc[f.requestorOrig] },
               { label: 'Phone',           value: mcc[f.pocPhone] },
               { label: 'When Originated', value: fmtDateTime(mcc[f.mccCreated] || mcc[f.entryDate]) },
               { label: 'Last Updated',    value: fmtDateTime(mcc[f.editDate]) },
               { label: 'County',          value: mcc[f.county] },
-              { label: 'Subject',         value: mcc[f.subject] },
               { label: 'Region',          value: mcc[f.region] },
-              { label: 'Description',     value: mcc[f.description], multi: true },
-              { label: 'FEMA Lifeline',   value: mcc[f.lifeline] },
-              { label: 'Feeding',         value: mcc[f.feeding] },
+            ]} />
+
+            <Section title="Description" rows={[
+              { label: 'Subject',       value: mcc[f.subject] },
+              { label: 'Description',   value: mcc[f.description], multi: true },
+              { label: 'FEMA Lifeline', value: mcc[f.lifeline] },
+              { label: 'Feeding',       value: mcc[f.feeding] },
             ]} />
 
             <Section title="Point of Contact Information" rows={[
@@ -270,22 +288,16 @@ export default function MccDetailModal({ mcc, deployments = [], readOnly = false
               { label: 'Delivery Location Name', value: mcc[f.deliveryLocation] },
               { label: 'Delivery Address',       value: mcc[f.address] },
               { label: 'Delivery Date',          value: fmtDate(mcc[f.deliveryDate]) },
-              { label: 'Delivery Time',          value: mcc[f.deliveryTime] },
+              { label: 'Delivery Time',          value: fmtTime(mcc[f.deliveryTime]) },
               { label: 'Delivery Notes',         value: mcc[f.deliveryNotes], multi: true },
             ]} />
 
             <Section title="Mission Coordination Center" rows={[
-              { label: 'From',     value: mcc[f.originator] },
-              { label: 'To',       value: assignToDisplay(mcc[f.assignTo]) },
+              { label: 'From',     value: mcc[f.mccPosition] },
+              { label: 'To',       value: [f.assignTo, f.assignTo2, f.assignTo3, f.assignTo4].map((k) => assignToDisplay(mcc[k])).filter(Boolean).join(', ') || null },
               { label: 'Type',     value: mcc[f.type] },
               { label: 'Priority', value: mcc[f.priority] },
               { label: 'Status',   value: mcc[f.status] },
-            ]} />
-
-            <Section title="Audit" rows={[
-              { label: 'Created', value: fmtDateTime(mcc[f.creationDate]) },
-              { label: 'Creator', value: mcc[f.creator] },
-              { label: 'Editor',  value: mcc[f.editor] },
             ]} />
           </div>
         )}
